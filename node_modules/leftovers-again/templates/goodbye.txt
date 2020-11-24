@@ -1,0 +1,20 @@
+OK, you're all set! Your core bot files are in the current directory.
+
+Before you begin, install your dependencies:
+`npm install`
+
+Your bot's already prepared for battle! First, open a new console and run the server locally:
+    git clone https://github.com/dramamine/Pokemon-Showdown.git
+    npm run server
+
+Run this command to play against your first opponent:
+
+`npm start -- --opponent=randumb`
+
+Other useful commands:
+`npm run develop --opponent=randumb`: watch src folder, and re-run a match
+                                      whenever you save changes
+
+`npm start -- --production`: connect to cyberdyne.psim.us
+
+`npm start -- --help`: full list of commands for leftovers-again
