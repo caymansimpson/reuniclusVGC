@@ -134,8 +134,9 @@ A bot to play VGC. Here are my initial notes from reading
   4. [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
   5. command -v nvm # to ensure it is running
   6. nvm install node -g
-3. python3.8 -m pip install
+3. python3.8 -m pip install poke-env
 4. git clone https://github.com/hsahovic/Pokemon-Showdown.git
+5. python3.8 -m pip install pip keras-rl2
 
 To run an eample where we simulate random battles, from home directory:
 `node Pokemon-Showdown/pokemon-showdown`
