@@ -6,6 +6,11 @@ class RandomDoublesPlayer(Player):
     def choose_move(self, battle):
         return self.choose_random_doubles_move(battle)
 
+    def teampreview(self, battle):
+
+        # We use 1-6 because  showdown's indexes start from 1
+        return "/team " + "".join(random.sample(list(map(lambda x: str(x+1), range(0, len(battle.team)))), k=4))
+
     # Simplifies Random Move Choices -- no Z, dynamax or Mega evolutions
     # original choose_random_doubles_move found here: https://github.com/hsahovic/poke-env/blob/a336a7221089537ef724aa1d15bb58d1a81cb69d/src/poke_env/player/player.py
     def choose_random_doubles_move(self, battle):
