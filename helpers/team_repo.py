@@ -386,5 +386,29 @@ IVs: 0 Atk
 - Dazzling Gleam
 - Follow Me
 - Protect
+""","""
+Magikarp
+Ability: Swift Swim
+EVs: 8 HP
+IVs: 0 Atk
+- Splash
+
+Eevee @ Choice Specs
+Ability: Run Away
+EVs: 20 HP
+IVs: 0 Atk
+- Detect
+
+Machop @ Choice Band
+Ability: Guts
+EVs: 4 Atk
+IVs: 0 Atk
+- Encore
+
+Blissey (F) @ Choice Scarf
+Ability: Natural Cure
+EVs: 8 SpA
+IVs: 0 Atk
+- Aromatherapy
 """
   ]

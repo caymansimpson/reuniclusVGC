@@ -9,6 +9,7 @@ from poke_env.player.random_player import RandomPlayer
 from helpers.doubles_utils import get_reasonable_moves
 
 # Random Bot that doesn't self-hit
+# TODO: need to handle case where mon has no available moves/switches left and needs to struggle
 class SmarterRandomPlayer(Player):
     def choose_move(self, battle):
 
@@ -16,15 +17,23 @@ class SmarterRandomPlayer(Player):
         possible_moves = get_reasonable_moves(battle)
         if len(possible_moves) == 0: return "/choose default,default"
 
-        # Choose a random action, and order actions such that action1 always is not None
+        # Choose a random action, and order actions when a pokemon is fainted so that the only action goes first
         action1, action2 = random.choice(possible_moves)
         if action1 is None and action2 is None: return "/choose default,default"
-        if action1 is None: action2, action1 = action1, action2
+        if battle.active_pokemon[0] is None: action1, action2 = action2, action1
 
-        order = "/choose " + action1.showdownify()
+        order = "/choose " + (action1.showdownify() if action1 is not None else "default")
+        order += "," + (action2.showdownify() if action2 is not None else "default")
 
-        if action2 != None: order += "," + action2.showdownify()
-        else: order += ",default"
+        # if battle.active_pokemon[0] is not None and battle.active_pokemon[1] is not None:
+        #     print(str(action1) + "\t\t||\t\t" + str(action2))
+        #     print(battle.active_pokemon[0].species + "," + battle.active_pokemon[1].species + "=> " + order)
+        # elif battle.active_pokemon[0] is None:
+        #     print(str(action1) + "\t\t||\t\t" + str(action2))
+        #     print("None," + battle.active_pokemon[1].species + "=> " + order)
+        # elif battle.active_pokemon[1] is None:
+        #     print(str(action1) + "\t\t||\t\t" + str(action2))
+        #     print(battle.active_pokemon[0].species + ",None=> " + order)
 
         return order
 

@@ -9,7 +9,7 @@ import random
 class Action:
     _actor, _action, _target = None, None, None
 
-    def __init__(self, actor, action, target=None):
+    def __init__(self, actor=None, action=None, target=None):
         self._actor = actor
         self._action = action
         self._target = target
@@ -73,6 +73,32 @@ class Action:
     def __repr__(self):
         return self.__str__()
 
+# Gets all possible moves for a Pokemon
+def get_possible_moves(battle, mon):
+    actions = []
+
+    # If we somehow don't have any active pokemon, return default
+    if not (battle.active_pokemon):
+        return [None]
+
+    # Find index of the mon, and if the mon passsed in isn'ta ctive, we raise a problem
+    index = 0 if battle.active_pokemon[0] is not None and mon.species == battle.active_pokemon[0].species else 1
+    if battle.active_pokemon[1] is not None and mon.species != battle.active_pokemon[1].species: raise("hullabaloo")
+
+    # Iterate through available moves of Pokemon_1
+    for move in battle.available_moves[index]:
+
+        # Add all available move to list against all targets
+        for target in battle.get_possible_showdown_targets(move, mon):
+            actions.append(Action(mon, move, target))
+
+    # Add all available switches to this list, if either the pokemon isn't trapped or we're forced to switch
+    if not battle.trapped[index] or battle.force_switch[index]:
+        for pokemon in battle.available_switches[index]:
+            actions.append(Actor(mon, pokemon))
+
+    return actions if actions is not None else [Action(mon, Move('struggle'), target) for target in battle.get_possible_showdown_targets(move, mon)]
+
 # Limits search space for now:
 # Only consider self-hit moves if they are self-switch or if they are super effective and your other pokemon has weakness policy
 # Only consider self- or ally-boosting moves if you have boosts left, or if you dont, if the other pokemon has sucker punch
@@ -88,6 +114,9 @@ def get_reasonable_moves(battle):
     # If we somehow don't have any active pokemon, return default
     if not any(battle.active_pokemon):
         return [(None, None)]
+
+    # Store whether we filtered anything
+    filtered = False
 
     ######################### FIRST POKEMON #########################
     # Make sure there's a pokemon in the slot
@@ -110,10 +139,13 @@ def get_reasonable_moves(battle):
                         if (first_mon.boosts[stat] == 6 and move.boosts[stat] > 0) or (first_mon.boosts[stat] == -6 and move.boosts[stat] < 0): num_failed += 1
                     if num_failed < len(move.boosts):
                         first_orders.append(Action(first_mon, move, target))
+                    else:
+                        filtered = True
 
                 # Only consider side_condition moves if they will have an effect
                 elif move.side_condition or move.weather or move.terrain:
                     if move.side_condition not in battle.side_conditions: first_orders.append(Action(first_mon, move, target))
+                    else: filtered = True
 
                 # In all other cases, just add this to the list of possible moves
                 else:
@@ -124,9 +156,15 @@ def get_reasonable_moves(battle):
             for possible_mon in battle.available_switches[0]:
                 first_orders.append(Action(first_mon, possible_mon))
 
+        # If we have no viable first_orders, then we add Struggle
+        if len(first_orders) == 0 and not filtered:
+            for target in battle.get_possible_showdown_targets(Move("struggle"), first_mon):
+                first_orders.append(Action(first_mon, Move("struggle"), target))
+
     ######################### SECOND POKEMON #########################
     second_orders = []
     second_mon = battle.active_pokemon[1]
+    filtered = False
     if second_mon is not None:
 
         # Go through each move the pokemon knows
@@ -145,10 +183,12 @@ def get_reasonable_moves(battle):
                         if (second_mon.boosts[stat] == 6 and move.boosts[stat] > 0) or (second_mon.boosts[stat] == -6 and move.boosts[stat] < 0): num_failed += 1
                     if num_failed < len(move.boosts):
                         second_orders.append(Action(second_mon, move, target))
+                    else: filtered = True
 
                 # Only consider side_condition moves if they will have an effect
                 elif move.side_condition or move.weather or move.terrain:
                     if move.side_condition not in battle.side_conditions: second_orders.append(Action(second_mon, move, target))
+                    else: filtered = True
 
                 # In all other cases, just add this to the list of possible moves
                 else:
@@ -159,9 +199,14 @@ def get_reasonable_moves(battle):
             for possible_mon in battle.available_switches[1]:
                 second_orders.append(Action(second_mon, possible_mon))
 
+        # If we have no viable first_orders, then we add Struggle
+        if len(second_orders) == 0 and not filtered:
+            for target in battle.get_possible_showdown_targets(Move("struggle"), first_mon):
+                second_orders.append(Action(second_mon, Move("struggle"), target))
+
     # If there's only one mon left or if we're forced to switch, then we've already handled all the conditions
     if len(second_orders) == 0 or battle.force_switch[0]: return list(map(lambda x: (x, None), first_orders))
-    if len(first_orders) == 0 or battle.force_switch[1]: return list(map(lambda x: (x, None), second_orders))
+    if len(first_orders) == 0 or battle.force_switch[1]: return list(map(lambda x: (None, x), second_orders))
 
     # Now, given all the first and second orders, we eliminate the following conditions:
     # Self-targets on damaging moves (if not to self-switch or to activate weakness policies), or switching to the same mon

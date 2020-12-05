@@ -15,19 +15,25 @@ from helpers.team_repo import TeamRepository
 
 # TODO: examine why we get this error:
 # 2020-11-29 01:59:42,142 - SmarterRandomPlayer 1 - WARNING - Error message received: |error|[Invalid choice] Can't move: Your Zapdos doesn't have a move matching nastyplot
+# Go to SmarterRandomPlayer
+# Print out what's happening with specifically Zapdos
 async def main():
     # We create players:
     players = [
-      RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[0]),
-      SmarterRandomPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[1]),
-      RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[1]),
-      RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[2]),
-      RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[3])
+      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[0]),
+      SmarterRandomPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams[1]),
+      RandomDoublesPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams[0]),
+      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[2]),
+      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[3])
     ]
+
+    player1=SmarterRandomPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams[4])
+
+    player2=SmarterRandomPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams[4])
 
     # Now, we can cross evaluate them: every player will player 30 games against every
     # other player.
-    cross_evaluation = await cross_evaluate(players, n_challenges=50)
+    cross_evaluation = await cross_evaluate(players, n_challenges=100)
 
     # Defines a header for displaying results
     table = [["-"] + [p.username for p in players]]

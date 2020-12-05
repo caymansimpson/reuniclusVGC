@@ -8,6 +8,7 @@ To modify this algo for Pokemon and efficiency, when prioritizing which trees to
 - never go past three turns
 - explore self-damaging moves last
 
+# To do this, use a stack and enueue things in the forlopp and then for all things in stack, order it, and pull them out in order
 function alphabeta(node, depth, α, β, maximizingPlayer) is
     if depth = 0 or node is a terminal node then
         return the heuristic value of node
@@ -31,11 +32,23 @@ function alphabeta(node, depth, α, β, maximizingPlayer) is
 
 class ExpectimaxPlayer(Player):
     def choose_move(self, battle):
-        return self.choose_random_doubles_move(battle)
 
+        # Get all possible moves. If there are none, return default
+        possible_moves = get_reasonable_moves(battle)
+        if len(possible_moves) == 0: return "/choose default,default"
+
+        # Choose a random action, and order actions such that action1 always is not None
+        action1, action2 = random.choice(possible_moves)
+        if action1 is None and action2 is None: return "/choose default,default"
+
+        order = "/choose " + (action1.showdownify() if action1 is None else "default")
+        order += "," + (action2.showdownify() if action2 is None else "default")
+
+        return order
+
+    # Get Random Team
     def teampreview(self, battle):
-        # We use random for now
-        return "/team " + "".join(random.sample(list(map(lambda x: str(x+1), range(0, len(battle.team))), k=4))
+        return "/team " + "".join(random.sample(list(map(lambda x: str(x+1), range(0, len(battle.team)))), k=4))
 
     # Win: 100 points
     # Each mon: 20 points
