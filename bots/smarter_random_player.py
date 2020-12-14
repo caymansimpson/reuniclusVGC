@@ -1,39 +1,45 @@
 import sys
 import random
+import itertools
 
 sys.path.append(".") # will make "utils" callable from root
 sys.path.append("..") # will make "utils" callable from simulators
 
 from poke_env.player.player import Player
 from poke_env.player.random_player import RandomPlayer
-from helpers.doubles_utils import get_reasonable_moves
+from helpers.doubles_utils import *
 
 # Random Bot that doesn't self-hit
-# TODO: need to handle case where mon has no available moves/switches left and needs to struggle
 class SmarterRandomPlayer(Player):
     def choose_move(self, battle):
 
-        # Get all possible moves. If there are none, return default
-        possible_moves = get_reasonable_moves(battle)
-        if len(possible_moves) == 0: return "/choose default,default"
+        # If we're not being forced to switch and are choosing our moves
+        if not any(battle.force_switch):
 
-        # Choose a random action, and order actions when a pokemon is fainted so that the only action goes first
-        action1, action2 = random.choice(possible_moves)
-        if action1 is None and action2 is None: return "/choose default,default"
-        if battle.active_pokemon[0] is None: action1, action2 = action2, action1
+            # Go through and get actions, filter them down to what's possible, and then eliminate ones that dont make sense
+            first_moves = get_possible_moves(battle, battle.active_pokemon[0])
+            second_moves = get_possible_moves(battle, battle.active_pokemon[1])
 
-        order = "/choose " + (action1.showdownify() if action1 is not None else "default")
-        order += "," + (action2.showdownify() if action2 is not None else "default")
+            all_possible_moves = itertools.product(first_moves, second_moves)
+            filtered_moves = filter_to_possible_moves(battle, all_possible_moves)
+            reasonable_moves = filter_to_reasonable_moves(battle, filtered_moves)
 
-        # if battle.active_pokemon[0] is not None and battle.active_pokemon[1] is not None:
-        #     print(str(action1) + "\t\t||\t\t" + str(action2))
-        #     print(battle.active_pokemon[0].species + "," + battle.active_pokemon[1].species + "=> " + order)
-        # elif battle.active_pokemon[0] is None:
-        #     print(str(action1) + "\t\t||\t\t" + str(action2))
-        #     print("None," + battle.active_pokemon[1].species + "=> " + order)
-        # elif battle.active_pokemon[1] is None:
-        #     print(str(action1) + "\t\t||\t\t" + str(action2))
-        #     print(battle.active_pokemon[0].species + ",None=> " + order)
+            action1, action2 = Action(), Action()
+            if len(reasonable_moves) > 0: action1, action2 = random.choice(reasonable_moves)
+            elif len(filtered_moves) > 0: action1, action2 = random.choice(filtered_moves)
+
+            # Choose a random action, and order actions when a pokemon is fainted so that the only action goes first
+            if battle.active_pokemon[0] is None: action1, action2 = action2, action1
+
+            order = "/choose " + action1.showdownify() + "," + action2.showdownify()
+
+        # Force Switch situation
+        else:
+            moves = get_possible_moves(battle, battle.active_pokemon[0 if battle.force_switch[0] else 1])
+            all_possible_moves = itertools.product(moves, [Action()])
+            filtered_moves = filter_to_possible_moves(battle, all_possible_moves)
+            action1, _ = random.choice(filtered_moves)
+            order = "/choose " + action1.showdownify()
 
         return order
 

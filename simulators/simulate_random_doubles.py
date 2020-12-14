@@ -18,18 +18,19 @@ from helpers.team_repo import TeamRepository
 # Go to SmarterRandomPlayer
 # Print out what's happening with specifically Zapdos
 async def main():
+    print("\033[92m Starting script... \033[0m")
+
+
     # We create players:
     players = [
       # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[0]),
-      SmarterRandomPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams[1]),
-      RandomDoublesPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams[0]),
-      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[2]),
-      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams[3])
+      # SmarterRandomPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams['nochoice']),
+      # SmarterRandomPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams['doubleturn']),
+      SmarterRandomPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['regirock']),
+      RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['switch']),
+      SmarterRandomPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['garchomp']),
+      SmarterRandomPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['swampert']),
     ]
-
-    player1=SmarterRandomPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams[4])
-
-    player2=SmarterRandomPlayer(max_concurrent_battles=1, battle_format='gen8vgc2021', team=TeamRepository.teams[4])
 
     # Now, we can cross evaluate them: every player will player 30 games against every
     # other player.

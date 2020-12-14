@@ -4,6 +4,7 @@ from poke_env.environment.move import Move
 from poke_env.environment.pokemon import Pokemon
 from typing import Optional
 import random
+import itertools
 
 # This represents an action that a single Pokemon can take -- it can either be a switch or a move
 class Action:
@@ -12,23 +13,37 @@ class Action:
     def __init__(self, actor=None, action=None, target=None):
         self._actor = actor
         self._action = action
-        self._target = target
+        self._target = target if target != 0 else None
+
+    def isEmpty(self) -> bool:
+        """
+        :return: Whether the Action has been set to anything, or is an empty action (default)
+        :rtype: bool
+        """
+        return self._actor == None and self._action == None and self._target==None
 
     def isMove(self) -> bool:
-        return isinstance(self._action, Move)
+        """
+        :return: Whether this action represents a move. If empty, will return False
+        :rtype: bool
+        """
+        return self._action is not None and isinstance(self._action, Move)
+
+    def isSwitch(self) -> bool:
+        """
+        :return: Whether this action represents a switch. If empty, will return False
+        :rtype: bool
+        """
+        return self._action is not None and isinstance(self._action, Pokemon)
 
     def showdownify(self) -> str:
         """
         :return: The Showdown message we should return for this Action. You still have to do some work to get this move to work w/ others (eg include "/choose" and ",")
         :rtype: str
         """
-        order = ""
-        if self.isMove():
-            order += "move " + str(self.move.id)
-            if self.target is not None: order += " " + str(self.target)
-        else:
-            order += "switch " + self.switch.species
-        return order
+        if self.isEmpty(): return "default"
+        elif self.isMove(): return "move " + str(self.move.id) + (" " + str(self.target) if self.target is not None else "")
+        else: return "switch " + self.switch.species
 
     @property
     def target(self) -> Optional[int]:
@@ -36,11 +51,11 @@ class Action:
         :return: The target of the move, if there is one (self does not count), otherwise, return None
         :rtype: int
         """
-        return self._target if self._target != 0 else None
+        return self._target
 
     @target.setter
     def target(self, target: Optional[int]):
-        self._target = target
+        self._target = target if target != 0 else None
 
     @property
     def move(self) -> Optional[Move]:
@@ -48,7 +63,7 @@ class Action:
         :return: Move if the action is a Move, otherwise None
         :rtype: Move
         """
-        return self._action if self.isMove() else None
+        return self._action if self.isMove() and not self.isEmpty() else None
 
     @property
     def switch(self) -> Optional[Pokemon]:
@@ -56,7 +71,7 @@ class Action:
         :return: Pokemon that the user wants to Switch to, if the action is a Switch, otherwise None
         :rtype: Move
         """
-        return self._action if not self.isMove() else None
+        return self._action if not self.isMove() and not self.isEmpty() else None
 
     @property
     def actor(self) -> Pokemon:
@@ -68,24 +83,31 @@ class Action:
 
     def __str__(self):
         if self.isMove(): return "Actor: " + self._actor.species + ",Move: " + str(self._action.id) + (",Target:" + str(self._target) if self._target is not None else "")
-        else: return "Actor: " + self._actor.species + ",Switch: " + str(self._action.species)
+        elif self.isSwitch(): return "Actor: " + self._actor.species + ",Switch: " + str(self._action.species)
+        else: return "Empty Action"
 
     def __repr__(self):
         return self.__str__()
 
 # Gets all possible moves for a Pokemon
 def get_possible_moves(battle, mon):
+    """
+    :return: A list of all actions a pokemon can do in its position for the battle
+    :rtype: List[Action]
+    """
+
     actions = []
 
-    # If we somehow don't have any active pokemon, return default
-    if not (battle.active_pokemon):
-        return [None]
+    # If we somehow don't have any active pokemon or the mon is None, return None
+    if battle is None or not (battle.active_pokemon) or mon is None:
+        return [Action()]
 
-    # Find index of the mon, and if the mon passsed in isn'ta ctive, we raise a problem
+    # Find index of the mon, and if the mon passsed in isn't active, we raise a problem
     index = 0 if battle.active_pokemon[0] is not None and mon.species == battle.active_pokemon[0].species else 1
-    if battle.active_pokemon[1] is not None and mon.species != battle.active_pokemon[1].species: raise("hullabaloo")
+    if all(battle.active_pokemon) and mon.species != battle.active_pokemon[0].species and mon.species != battle.active_pokemon[1].species:
+        raise("you passed in a mon that doesnt exist!")
 
-    # Iterate through available moves of Pokemon_1
+    # Iterate through available moves
     for move in battle.available_moves[index]:
 
         # Add all available move to list against all targets
@@ -95,159 +117,99 @@ def get_possible_moves(battle, mon):
     # Add all available switches to this list, if either the pokemon isn't trapped or we're forced to switch
     if not battle.trapped[index] or battle.force_switch[index]:
         for pokemon in battle.available_switches[index]:
-            actions.append(Actor(mon, pokemon))
+            actions.append(Action(mon, pokemon))
 
-    return actions if actions is not None else [Action(mon, Move('struggle'), target) for target in battle.get_possible_showdown_targets(move, mon)]
+    # Always return an empty action if there are none available
+    return actions if len(actions) > 0 else [Action()]
 
-# Limits search space for now:
-# Only consider self-hit moves if they are self-switch or if they are super effective and your other pokemon has weakness policy
-# Only consider self- or ally-boosting moves if you have boosts left, or if you dont, if the other pokemon has sucker punch
-# Only consider terrain/reflect/weather moves if they will have an effect, or if another pokemon can change them and will move first (e.g. via move or switch or dynamax)
-# Returns Tuple of Actions for each mon
-def get_reasonable_moves(battle):
+# Filter tuples of moves to ones that are possible
+def filter_to_possible_moves(battle, actions):
     """
     :return: A list of tuples that contain possible actions
     :rtype: List[(Action, Action)]
     """
-    first_orders = []
 
-    # If we somehow don't have any active pokemon, return default
-    if not any(battle.active_pokemon):
-        return [(None, None)]
+    filtered_moves = []
 
-    # Store whether we filtered anything
-    filtered = False
+    # Iterate through every action
+    for action1, action2 in actions:
 
-    ######################### FIRST POKEMON #########################
-    # Make sure there's a pokemon in the slot
-    first_mon = battle.active_pokemon[0]
-    if first_mon is not None:
+        # Can't switch to the same mon
+        if action1.isSwitch() and action2.isSwitch() and action1.switch.species == action2.switch.species: continue
 
-        # Go through each move the pokemon knows
-        for move in battle.available_moves[0]:
+        # Can't use a move w/ no PP
+        if (action1.isMove() and action1.move.current_pp == 0) or (action2.isMove() and action2.move.current_pp == 0): continue
 
-            # If we're out of PP, it shouldn't be considered an available move
-            if move.current_pp == 0: continue
+        filtered_moves.append((action1, action2))
 
-            # Iterate through all targets
-            for target in battle.get_possible_showdown_targets(move, first_mon):
+    return filtered_moves
 
-                # Only consider self- or ally-boosting moves if you have boosts left, or if you dont, if the other pokemon has sucker punch
-                if move.boosts and move.target == 'self':
-                    num_failed = 0
-                    for stat in move.boosts:
-                        if (first_mon.boosts[stat] == 6 and move.boosts[stat] > 0) or (first_mon.boosts[stat] == -6 and move.boosts[stat] < 0): num_failed += 1
-                    if num_failed < len(move.boosts):
-                        first_orders.append(Action(first_mon, move, target))
-                    else:
-                        filtered = True
+# Filters all actions to reasonable moves
+def filter_to_reasonable_moves(battle, actions):
+    reasonable_moves = []
 
-                # Only consider side_condition moves if they will have an effect
-                elif move.side_condition or move.weather or move.terrain:
-                    if move.side_condition not in battle.side_conditions: first_orders.append(Action(first_mon, move, target))
-                    else: filtered = True
+    # TODO: change these to positives; e.g is_valid_self_hit, is_valid_self_boost, is_valid_side_condition
+    for action1, action2 in actions:
+        if (action1.isMove() and action1.move.current_pp == 0) or (action2.isMove() and action2.move.current_pp == 0): continue
 
-                # In all other cases, just add this to the list of possible moves
-                else:
-                    first_orders.append(Action(first_mon, move, target))
+        if _useless_self_boost(action1) or _useless_self_boost(action2): continue
+        if _useless_battle_condition(battle, action1) or _useless_battle_condition(battle, action2): continue
+        if _useless_self_hit(battle, action1) or _useless_self_hit(battle, action2): continue
 
-        # Consider switches
-        if not battle.trapped[0] or battle.force_switch[0]:
-            for possible_mon in battle.available_switches[0]:
-                first_orders.append(Action(first_mon, possible_mon))
+        reasonable_moves.append((action1, action2))
 
-        # If we have no viable first_orders, then we add Struggle
-        if len(first_orders) == 0 and not filtered:
-            for target in battle.get_possible_showdown_targets(Move("struggle"), first_mon):
-                first_orders.append(Action(first_mon, Move("struggle"), target))
+    return reasonable_moves
 
-    ######################### SECOND POKEMON #########################
-    second_orders = []
-    second_mon = battle.active_pokemon[1]
-    filtered = False
-    if second_mon is not None:
+# Return if the self-boost is inneffectual
+def _useless_self_boost(action):
+    if action.isMove():
 
-        # Go through each move the pokemon knows
-        for move in battle.available_moves[1]:
+        # Only consider self- or ally-boosting moves if you have boosts left, or if you dont, if the other pokemon has sucker punch
+        if action.move.boosts and action.move.target == 'self':
+            num_failed = 0
+            for stat in action.move.boosts:
+                if (action.actor.boosts[stat] == 6 and action.boosts[stat] > 0) or (action.actor.boosts[stat] == -6 and action.move.boosts[stat] < 0): num_failed += 1
+            if num_failed < len(action.move.boosts):
+                return True
+    return False
 
-            # If we're out of PP, it shouldn't be considered an available move
-            if move.current_pp == 0: continue
+# Return if side condition move is useless. This should eventually return False for everything when we learn better (e.g. Torkoal switch-ins)
+def _useless_battle_condition(battle, action):
+    if not action.isMove(): return False
 
-            # Iterate through all targets
-            for target in battle.get_possible_showdown_targets(move, second_mon):
-
-                # Only consider self- or ally-boosting moves if you have boosts left, or if you dont, if the other pokemon has sucker punch
-                if move.boosts and move.target == 'self':
-                    num_failed = 0
-                    for stat in move.boosts:
-                        if (second_mon.boosts[stat] == 6 and move.boosts[stat] > 0) or (second_mon.boosts[stat] == -6 and move.boosts[stat] < 0): num_failed += 1
-                    if num_failed < len(move.boosts):
-                        second_orders.append(Action(second_mon, move, target))
-                    else: filtered = True
-
-                # Only consider side_condition moves if they will have an effect
-                elif move.side_condition or move.weather or move.terrain:
-                    if move.side_condition not in battle.side_conditions: second_orders.append(Action(second_mon, move, target))
-                    else: filtered = True
-
-                # In all other cases, just add this to the list of possible moves
-                else:
-                    second_orders.append(Action(second_mon, move, target))
-
-        # Consider switches
-        if not battle.trapped[1] or battle.force_switch[1]:
-            for possible_mon in battle.available_switches[1]:
-                second_orders.append(Action(second_mon, possible_mon))
-
-        # If we have no viable first_orders, then we add Struggle
-        if len(second_orders) == 0 and not filtered:
-            for target in battle.get_possible_showdown_targets(Move("struggle"), first_mon):
-                second_orders.append(Action(second_mon, Move("struggle"), target))
-
-    # If there's only one mon left or if we're forced to switch, then we've already handled all the conditions
-    if len(second_orders) == 0 or battle.force_switch[0]: return list(map(lambda x: (x, None), first_orders))
-    if len(first_orders) == 0 or battle.force_switch[1]: return list(map(lambda x: (None, x), second_orders))
-
-    # Now, given all the first and second orders, we eliminate the following conditions:
-    # Self-targets on damaging moves (if not to self-switch or to activate weakness policies), or switching to the same mon
-    reasonable_orders = []
-
-    # Go through all the orders, and four cases: move/move, switch/move, move/switch, switch/switch
-    for action1 in first_orders:
-        for action2 in second_orders:
-
-            # TODO: what would be better here is if action 1 does damage and is self-target; basePower or damage
-            # move/move, if move is self-hit, ensure that you are self-switching w/ other mon or are activating weakness policy
-            if action1.isMove() and action2.isMove():
-                if doesDamage(action1.move) and not (_is_valid_self_hit(action1.move, action2.actor) or action2.move.self_switch): continue
-                if doesDamage(action2.move)  and not (_is_valid_self_hit(action2.move, action1.actor) or action1.move.self_switch): continue
-
-            # switch/move: if move is self-hit, ensure that incoming pokemon is either activating weakness policy, or it's a self-switch
-            if not action1.isMove() and action2.move and action2.target is not None and action2.target < 0:
-                if not _is_valid_self_hit(action2.move, action1.switch): continue
-
-            # move/switch
-            if action1.isMove() and not action2.isMove() and action1.target is not None and action1.target < 0:
-                if not _is_valid_self_hit(action1.move, action2.switch): continue
-
-            # switch/switch: if we switch to the same pokemon, eliminate
-            if not action1.isMove() and not action2.isMove():
-                if action1.switch.species == action2.switch.species: continue
-
-            reasonable_orders.append((action1, action2))
-
-    return reasonable_orders
+    if action.move.side_condition and action.move.side_condition in battle.side_conditions: return True
+    if action.move.weather and action.move.weather in battle.weather: return True
+    if action.move.terrain and action.move.terrain in battle.terrain: return True
+    return False
 
 # Method to help reduce state space (will eventually default to 0). Here's the cases in which a self-hit is valid:
 # Activate Weakness Policy
 # Activate Justified
 # Activate Berserk
 # Activate Anger Point/Water Absorb/Volt Absorb/flash fire
-#
-# Right now, defaults to False to eliminate self-hits
-def _is_valid_self_hit(move, target_mon):
-    # if not move.self_switch and not (target.item = 'weaknesspolicy' and move.type.damange_multiplier(*target.types)): continue
+# If actor has no more non-damaging moves and the opposing mon has suckerpunch
+# Can default to False to eliminate self-hits, and True to not eliminate anything
+def _useless_self_hit(battle, action):
+
+    # Eliminate easy conditions in which this is not a useless self hit
+    if not action.isMove(): return False
+    if not _does_damage(action): return False
+    if action.move.self_switch: return False
+
+    # If it's a self-hit
+    if action.target and action.target < 0:
+        target_mon = battle.active_pokemon[action.target]
+        if target_mon.item == 'weaknesspolicy' and action.move.type.damage_multiplier(*target_mon.types) >= 2: return True
+        elif target_mon.ability == 'Berserk': return False
+        elif target_mon.ability == 'Justified' and action.move.type == 'DARK': return False
+        elif target_mon.ability == 'Water Absorb' and action.move.type == 'WATER': return False
+        elif target_mon.ability == 'Volt Absorb' and action.move.type == 'ELECTRIC': return False
+        elif target_mon.ability == 'Flash Fire' and action.move.type == 'FIRE': return False
+        else: return True
+
     return False
 
-def doesDamage(move):
-    return move.base_power > 0 or move.damage
+
+# If not a move, returns false
+def _does_damage(action):
+    return action.isMove() and (action.move.base_power > 0 or action.move.damage)

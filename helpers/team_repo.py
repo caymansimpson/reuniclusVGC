@@ -1,5 +1,6 @@
 class TeamRepository:
-  teams = ["""
+  teams = {
+    "common": """
 Tapu Fini @ Wiki Berry
 Level: 50
 Ability: Misty Surge
@@ -62,7 +63,7 @@ IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
 -  Close Combat
 -  Sucker Punch
 -  Protect
-""","""
+""", "swampert": """
 Zapdos-Galar @ Choice Scarf
 Level: 50
 Ability: Defiant
@@ -128,7 +129,7 @@ IVs: 31 HP / 0 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
 -  Thunderbolt
 -  Nasty Plot
 -  Protect
-""","""
+""","regirock": """
 Raichu @ Focus Sash
 Level: 50
 Ability: Lightning Rod
@@ -194,7 +195,7 @@ IVs: 31 HP / 0 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
 -  Air Slash
 -  Nasty Plot
 -  Protect
-""","""
+""","garchomp": """
 Garchomp @ Weakness Policy
 Ability: Rough Skin
 Level: 50
@@ -259,7 +260,7 @@ IVs: 0 Atk
 - Muddy Water
 - Calm Mind
 - Protect
-""","""
+""","mamoswine": """
 Thundurus (M) @ Life Orb
 Ability: Defiant
 Level: 50
@@ -322,7 +323,7 @@ Jolly Nature
 - Smart Strike
 - Sacred Sword
 - Aerial Ace
-""","""
+""","spectrier": """
 Spectrier @ Grassy Seed
 Ability: Grim Neigh
 Level: 50
@@ -386,7 +387,7 @@ IVs: 0 Atk
 - Dazzling Gleam
 - Follow Me
 - Protect
-""","""
+""","nochoice": """
 Magikarp
 Ability: Swift Swim
 EVs: 8 HP
@@ -410,5 +411,65 @@ Ability: Natural Cure
 EVs: 8 SpA
 IVs: 0 Atk
 - Aromatherapy
+""","doubleturn": """
+Magikarp
+Ability: Swift Swim
+EVs: 8 HP
+IVs: 0 Atk
+- Splash
+
+Dragapult @ Sitrus Berry
+Ability: Clear Body
+EVs: 20 HP
+IVs: 0 Atk
+-  Phantom Force
+-  Dragon Darts
+-  Fly
+-  Protect
+
+
+Landorus-Therian @ Assault Vest
+Level: 50
+Ability: Intimidate
+EVs: 4 HP / 252 Atk / 0 Def / 0 SpA / 0 SpD / 252 Spe
+Jolly Nature
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+-  Fly
+-  Superpower
+
+Swampert @ Life Orb
+Level: 50
+Ability: Torrent
+EVs: 252 HP / 228 Atk / 4 Def / 0 SpA / 4 SpD / 20 Spe
+Adamant Nature
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+-  Dive
+-  Ice Punch
+-  High Horsepower
+-  Hammer Arm
+""","switch": """
+Landorus-Therian (M)
+Ability: Intimidate
+EVs: 48 Atk
+- U-turn
+
+Regieleki
+Ability: Transistor
+EVs: 20 Def
+IVs: 0 Atk
+- Volt Switch
+
+Xatu
+Ability: Synchronize
+EVs: 40 Atk
+- U-turn
+- Teleport
+
+Vibrava
+Ability: Levitate
+Level: 50
+EVs: 20 Def
+- U-turn
+- Dragon Tail
 """
-  ]
+  }
