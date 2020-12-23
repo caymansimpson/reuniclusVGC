@@ -1,6 +1,7 @@
 import sys
 import random
 import itertools
+import re
 
 sys.path.append(".") # will make "utils" callable from root
 sys.path.append("..") # will make "utils" callable from simulators

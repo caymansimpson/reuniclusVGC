@@ -28,26 +28,34 @@ class MaxDamagePlayer(Player):
             # Iterate through all actions to pick best short-term move. These are our stored values
             action1, action2, most_damage, best_switch_multiplier = Action(), Action(), 0, 0
 
-            # Go through every move and pick high damage moves and multipliers of switch
+            # Go through every reasonable pair of actions and pick the pair that does the most high damage moves and multipliers of switch
             for a1, a2 in (reasonable_moves if len(reasonable_moves) > 0 else filtered_moves):
                 damage, switch_multiplier = 0, 0
 
-                # Add damage Im probably going to do
+                # Add up damage I'm probably going to do and switch multipliers compared to active pokemon
                 for action in [a1, a2]:
 
-                    # TODO: for each a1 and a2, rack up damage for all possible targets (subtract damage if youre the target)
+                    # If damaging move, Gg through each potential target and add up damage (subtract if self-damage)
                     if action.doesDamage():
-                        for target in aaaA:
-                        damage += action.move.base_power*action.move.type.damage_multiplier(*battle.active_pokemon[a1.target].types)*(1.5 if a1.move.type in a1.actor.types else 1)
-                if a2.doesDamage(): damage += a2.move.base_power*a2.move.type.damage_multiplier(*battle.active_pokemon[a2.target].types)*(1.5 if a2.move.type in a2.actor.types else 1)
+                        for target in action.affected_targets:
+                            is_self_hit = target < 0
+                            stab = 1.5 if action.move.type in action.actor.types else 1
+                            target_mon = battle.active_pokemon[showdown_target_to_active_pokemon(target, opp=False)] if is_self_hit else battle.opponent_active_pokemon[showdown_target_to_active_pokemon(target, opp=True)]
 
-                # Calculate average type advantage if I switch
-                if a1.isSwitch(): switch_multiplier += np.mean([compute_type_advantage(a1.actor, opp) for opp in battle.opponent_team.values()])
-                if a2.isSwitch(): switch_multiplier += np.mean([compute_type_advantage(a2.actor, opp) for opp in battle.opponent_team.values()])
+                            effectiveness = action.move.type.damage_multiplier(*target_mon.types) if target_mon is not None else 1
+                            base_power = action.move.base_power
+
+                            damage += base_power*stab*effectiveness*(-1 if is_self_hit else 1)
+
+                    # Calculate whether we're going to switch into an good environment (wrt types)
+                    elif action.isSwitch():
+                        switch_multiplier += np.mean([compute_type_advantage(action.actor, opp) for opp in filter(lambda x: x is not None, battle.opponent_active_pokemon)])
 
                 # Choose move if it does highest damage, and then if tied, the one that has the best switch
-                if damage > best_damage: action1, action2, most_damage, best_switch_multiplier = a1, a2, damage, switch_multiplier
-                elif damage == best_damage and switch_multiper >= best_switch_multiplier: action1, action2, most_damage, best_switch_multiplier = a1, a2, damage, switch_multiplier
+                if damage > most_damage:
+                    action1, action2, most_damage, best_switch_multiplier = a1, a2, damage, switch_multiplier
+                elif damage == most_damage and switch_multiplier >= best_switch_multiplier:
+                    action1, action2, most_damage, best_switch_multiplier = a1, a2, damage, switch_multiplier
 
 
             # Order actions when a pokemon is fainted so that the only action goes first

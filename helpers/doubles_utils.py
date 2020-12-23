@@ -103,13 +103,78 @@ class Action:
     def __repr__(self):
         return self.__str__()
 
+
+# This is how we translate active pokemon to showdown targets returned from the Battle object
+# Confirrmed that the opponent mapping is correct
+def active_pokemon_to_showdown_target(i, opp=False):
+    """
+    :return: Given an index of the mon in active_pokemon or opponent_active_pokemon, returns the showdown int that we need to give for a showdown action
+    :rtype: int
+    """
+    if opp: return {0: 1, 1: 2}[i]
+    else: return {0: -1, 1: -2}[i]
+
+# This is how we translate showdown targets pokemon to active pokemon returned from the Battle object
+def showdown_target_to_active_pokemon(i, opp=False):
+    """
+    :return: Given a showdown target, returns the index that the pokemon is in active_pokemon or opponent_active_pokemon
+    :rtype: int
+    """
+    if opp: return {1: 0, 2: 1}[i]
+    else: return {-1: 0, -2: 1}[i]
+
+# Given a battle state, mon and a move, return a list of list of targets that could be affected
+def get_possible_affected_targets(battle, move, mon):
+    """
+    :return: Given a battle state, move and the mon using the move, returns all possible showdown targets for that move
+    :rtype: List(List(int))
+    """
+    potential_affected_targets = []
+
+    # Go through method that is provided to us, but change to make sure every target returned is actually a list of affected_targets that are affected by the move
+    for target in battle.get_possible_showdown_targets(move, mon):
+
+        # the method battle.get_possible_showdown_targets returns 0 if a move affects multiple mons. Handle this case and returns a list of affected_targets
+        # (represented by ints) that are affected
+        if target == 0:
+            potentials = []
+
+            # Add all pokemon who could be affected for moves like Surf or Earthquake
+            if move.deduced_target == 'allAdjacent':
+                for i, potential_mon in enumerate(battle.active_pokemon):
+                    if potential_mon is not None and mon != potential_mon: potentials.append(active_pokemon_to_showdown_target(i, opp=False))
+
+                for i, potential_mon in enumerate(battle.opponent_active_pokemon):
+                    if potential_mon is not None: potentials.append(active_pokemon_to_showdown_target(i, opp=True))
+
+            # For moves like Heatwave that affect all opponents, ensure that we list all potential affected opponents
+            elif move.deduced_target in ['foeSide', 'allAdjacentFoes']:
+                for i, potential_mon in enumerate(battle.opponent_active_pokemon):
+                    if potential_mon is not None: potentials.append(active_pokemon_to_showdown_target(i, opp=True))
+
+            # For moves that affect our side of the field
+            elif move.deduced_target in ['allies', 'allySide', 'allyTeam']:
+                for i, potential_mon in enumerate(battle.active_pokemon):
+                    if potential_mon is not None and mon != potential_mon: potentials.append(active_pokemon_to_showdown_target(i, opp=True))
+
+            # For moves that don't have targets (like self-moves)
+            else: potentials.append(None)
+
+            potential_affected_targets.append(potentials)
+        else:
+            # If this is a one-target move, and there is one pokemon left, technically both opponent targets work in Showdown, since there's only one valid
+            # target. For our purposes, we only want to return the right target (where the mon is) so that we can retrieve the mon later without hassle
+            if battle.opponent_active_pokemon[(showdown_target_to_active_pokemon(target, opp=target > 0))] is not None:
+                potential_affected_targets.append([target])
+
+    return potential_affected_targets
+
 # Gets all possible moves for a Pokemon
 def get_possible_moves(battle, mon):
     """
     :return: A list of all actions a pokemon can do in its position for the battle
     :rtype: List[Action]
     """
-
     actions = []
 
     # If we somehow don't have any active pokemon or the mon is None, return None
@@ -142,7 +207,6 @@ def filter_to_possible_moves(battle, actions):
     :return: A list of tuples that contain possible actions
     :rtype: List[(Action, Action)]
     """
-
     filtered_moves = []
 
     # Iterate through every action
@@ -158,50 +222,12 @@ def filter_to_possible_moves(battle, actions):
 
     return filtered_moves
 
-# Given a battle state, mon and a move, return a list of list of targets that could be affected
-def get_possible_affected_targets(battle, move, mon):
-    potential_affected_targets = []
-
-    # This is how we translate active pokemon to showdown targets returned from the Battle object
-    my_translations = {0: -1, 1: -2}
-    opp_translations = {0: 1, 1: 2}
-
-    # Go through method that is provided to us, but change to make sure every target returned is actually a list of affected_targets that are affected by the move
-    for target in battle.get_possible_showdown_targets(move, mon):
-
-        # the method battle.get_possible_showdown_targets returns 0 if a move affects multiple mons. Handle this case and returns a list of affected_targets
-        # (represented by ints) that are affected
-        if target == 0:
-            potentials = []
-
-            # Add all pokemon who could be affected for moves like Surf or Earthquake
-            if move.deduced_target == 'allAdjacent':
-                for i, potential_mon in enumerate(battle.active_pokemon):
-                    if potential_mon is not None and mon != potential_mon: potentials.append(my_translations[i])
-
-                for i, potential_mon in enumerate(battle.opponent_active_pokemon):
-                    if potential_mon is not None: potentials.append(opp_translations[i])
-
-            # For moves like Heatwave that affect all opponents, ensure that we list all potential affected opponents
-            elif move.deduced_target in ['foeSide', 'allAdjacentFoes']:
-                for i, potential_mon in enumerate(battle.opponent_active_pokemon):
-                    if potential_mon is not None: potentials.append(opp_translations[i])
-
-            # For moves that affect our side of the field
-            elif move.deduced_target in ['allies', 'allySide', 'allyTeam']:
-                for i, potential_mon in enumerate(battle.active_pokemon):
-                    if potential_mon is not None and mon != potential_mon: potentials.append(my_translations[i])
-
-            # For moves that don't have targets (like self-moves)
-            else: potentials.append(None)
-
-            potential_affected_targets.append(potentials)
-        else: potential_affected_targets.append([target])
-
-    return potential_affected_targets
-
 # Filters all actions to reasonable moves
 def filter_to_reasonable_moves(battle, actions):
+    """
+    :return: A list of tuples that contain reasonable actions
+    :rtype: List[(Action, Action)]
+    """
     reasonable_moves = []
 
     for action1, action2 in actions:
@@ -238,11 +264,6 @@ def _useless_battle_condition(battle, action):
     return False
 
 # Method to help reduce state space (will eventually default to 0). Here's the cases in which a self-hit is valid:
-# Activate Weakness Policy
-# Activate Justified
-# Activate Berserk
-# Activate Anger Point/Water Absorb/Volt Absorb/flash fire
-# If actor has no more non-damaging moves and the opposing mon has suckerpunch
 # Can default to False to eliminate self-hits, and True to not eliminate anything
 def _useless_self_hit(battle, action):
 
