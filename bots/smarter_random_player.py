@@ -9,9 +9,12 @@ sys.path.append("..") # will make "utils" callable from simulators
 from poke_env.player.player import Player
 from poke_env.player.random_player import RandomPlayer
 from helpers.doubles_utils import *
+from bots.random_doubles_player import RandomDoublesPlayer
 
 # Random Bot that doesn't self-hit
+# TODO: there are some errors when you put edgecase teams against edgecase teams
 class SmarterRandomPlayer(Player):
+
     def choose_move(self, battle):
 
         # If we're not being forced to switch and are choosing our moves

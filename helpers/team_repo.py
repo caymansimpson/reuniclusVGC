@@ -471,5 +471,118 @@ Level: 50
 EVs: 20 Def
 - U-turn
 - Dragon Tail
+
+Dragapult
+Ability: Clear Body
+Level: 50
+EVs: 12 HP
+- Baton Pass
+- U-turn
+
+Incineroar
+Ability: Intimidate
+Level: 50
+EVs: 12 HP
+- U-turn
+- Parting Shot
+""","edgecase": """
+Indeedee (M)
+Ability: Psychic Surge
+Level: 50
+EVs: 112 Atk
+IVs: 0 Atk
+- Trick Room
+- Substitute
+- Ally Switch
+- Magic Room
+
+Pelipper @ Aguav Berry
+Ability: Drizzle
+Level: 50
+EVs: 100 Atk
+- Tailwind
+- U-turn
+- Hail
+- Whirlpool
+
+Dusclops
+Ability: Pressure
+Level: 50
+EVs: 176 Atk
+IVs: 0 Atk
+- Disable
+- Ally Switch
+- Trick
+- Mean Look
+
+Tapu Lele
+Ability: Psychic Surge
+Level: 50
+EVs: 152 Atk
+IVs: 0 Atk
+- Ally Switch
+- Aromatic Mist
+- Magic Room
+- Wonder Room
+""", "speed": """
+Pelipper
+Ability: Keen Eye
+Level: 50
+EVs: 16 Atk / 252 Spe
+IVs: 0 Atk
+- Tailwind
+- Scald
+
+Ludicolo
+Ability: Swift Swim
+Level: 50
+EVs: 20 HP
+IVs: 0 Atk
+- Rain Dance
+
+Rhyperior
+Ability: Reckless
+Level: 50
+EVs: 20 HP
+- Bulldoze
+- Rock Polish
+
+Raichu
+Ability: Static
+Level: 50
+EVs: 28 HP
+- Nuzzle
+- Thunder Wave
+- Thunder
+""","pledge":"""
+Incineroar
+Ability: Blaze
+Level: 50
+EVs: 44 HP
+IVs: 0 Atk
+- Fire Pledge
+
+Rillaboom
+Ability: Overgrow
+Level: 50
+EVs: 20 HP
+IVs: 0 Atk
+- Grass Pledge
+
+Primarina
+Ability: Torrent
+Level: 50
+EVs: 20 HP
+IVs: 0 Atk
+- Water Pledge
+
+Swampert
+Ability: Torrent
+Level: 50
+EVs: 4 HP / 252 Atk / 0 Def / 0 SpA / 0 SpD / 252 Spe
+Jolly Nature
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+- Water Pledge
+
 """
   }

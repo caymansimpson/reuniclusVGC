@@ -99,23 +99,5 @@ class MaxDamagePlayer(Player):
         ordered_mons = sorted(mon_performance, key=lambda k: -mon_performance[k])
 
         # We start with the one we consider best overall
-        # We use i + 1 as python indexes start from 0
-        #  but showdown's indexes start from 1
-        return "/team " + "".join([str(i + 1) for i in ordered_mons])
-
-# We evaluate the performance on mon1 against mon2 by its type advantage
-# We return how much better you can perform
-def compute_type_advantage(mon1, mon2):
-
-    a_on_b = b_on_a = -np.inf
-
-    # Store the max damage multiplier that the mon can do
-    for type_ in mon1.types:
-        if type_: a_on_b = max(a_on_b, type_.damage_multiplier(*mon2.types))
-
-    # Do the other way around
-    for type_ in mon2.types:
-        if type_: b_on_a = max(b_on_a, type_.damage_multiplier(*mon1.types))
-
-    # Our performance metric is the product between the two
-    return a_on_b - b_on_a
+        # We use i + 1 as python indexes start from 0 but showdown's indexes start from 1, and return the first 4 mons, in term of importance
+        return "/team " + "".join([str(i + 1) if i <= 3 else "6" for i in ordered_mons[:4]])
