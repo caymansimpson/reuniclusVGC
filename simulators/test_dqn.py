@@ -20,13 +20,13 @@ from helpers.team_repo import TeamRepository
 def main():
     print("\033[92m Starting script... \033[0m")
 
-    plyr = SimpleDQNPlayer(num_battles=10000, battle_format="gen8vgc2021")
+    plyr = SimpleDQNPlayer(num_battles=10000, battle_format="gen8vgc2021", team=TeamRepository.teams['garchomp'])
 
     # Initialize and check out our model
     plyr.model.summary()
 
-    random_opp = SmarterRandomPlayer(battle_format="gen8vgc2021")
-    max_opp = MaxDamagePlayer(battle_format="gen8vgc2021")
+    random_opp = SmarterRandomPlayer(battle_format="gen8vgc2021", team=TeamRepository.teams['swampert'])
+    max_opp = MaxDamagePlayer(battle_format="gen8vgc2021", team=TeamRepository.teams['regirock'])
 
     # Train
     print("Training against random opponent 10,000 times...")
@@ -39,8 +39,6 @@ def main():
     print("Results against random players:")
     plyr.evaluate_model(random_opp, 100)
     plyr.evaluate_model(max_opp, 100)
-
-
 
 if __name__ == "__main__":
     main()

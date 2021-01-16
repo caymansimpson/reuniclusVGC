@@ -37,17 +37,6 @@ A bot to play VGC. Here are my initial notes from reading
         - Maximize difference in HP
     - Maximize damage
     - Maximize difference in HP
-- Assume you already know the other team (eliminates partial observation complexity)
-    - This eliminates event space and computation.
-    - In the future, we can create a model to predict spreads/moves/4 pokemon brought of the team. In essence, the P(environment = e | opponent’s actions & what we’ve observed), where e is our guess of their spreads/moves
-        - Optimally, we would then incorporate this uncertainty into our choices, and further, we would account for how inoptimal we can get a player to act by withholding information
-    - In doubles use-case, assume we already know the 4 being brought. Same assumptions apply as singles, with another layer of “who will be the 4 that the opponent brings”
-- Progression:
-    - Start with 1:1s with same Pokemon
-    - Start with 2:2 doubles with same Pokemon
-    - 4:4 doubles with same Pokemon
-    - Randomize viable pokemon
-    - Randomize viable pokemon + viable moves
 - Start with doubles, as it is probably computationally less expensive
     - Turn-based event space: (ignoring dynamax, which adds 4 more actions per turn for singles, 8 for doubles)
         - Singles:  4 moves + 5 switches maximum = 9 possible
@@ -63,8 +52,7 @@ A bot to play VGC. Here are my initial notes from reading
         - Doubles: 196^15 = 2.420143236e34
     - Ignore secondary effects/moves if they are <80% likely
     - Assume anything that is more than 30% likely to happen is going to happen
-- We could possibly assume that players will make turns sequentially (and take top responses to sequential turns) to quickly find likely states?
-- Let's ignore situations in which we are forced to make a decision mid-turn (e.g. volt switch, whirlwind)
+- Ignore the existence of Zoroark and Ditto
 
 ### Ways Players Think
 - Pokemon is a game of wincons
@@ -80,25 +68,26 @@ A bot to play VGC. Here are my initial notes from reading
         - Is it possible to look at the situations in which I only have 2 mons left and I lose?
 - In winning positions, they start making decisions according to probabilities: how can you minimize P(loss)?
 
+### Type of Problem VGC is
+- Stochastic Game (players make moves simultaneously in decision-making scenarios; the joint actions results in a transition to a different game state)
+- Multi-Agent (two player)
+- Zero Sum (aka constant sum)
+- Partially Observable (each player has imperfect information)
 
-### ML types:
+### Potential ML approaches:
 - Reinforcement Learning because:
     - You dont know the probability of getting to the next state (due to opponent decision)
     - You don’t immediately know which states lead you to the reward (+1)
-- Monte Carlo Tree Searching?
-    - This would only really be applicable in Singles
-    - This would be really expensive; you could create heuristics to think 2-3 turns ahead
-        - e.g. not attacking your own pokemon unless healing or weakness policy
-- “Backwards Induction” (implemented as Alpha-Beta pruning) can help prune gamestates
-- Zero sum games can always be reformulated to Linear Problems (Dantzig, 1951)
-- Training against itself? (AlphaZero/AlphaGo approach)
-- “Portfolio Optimization” would be a team builder algorithm, and is unsolved
-- The type of problem this is:
-    - Stochastic Game (players make moves simultaneously in decision-making scenarios; the joint actions results in a transition to a different game state)
-    - Multi-Agent (two player)
-    - Zero Sum (aka constant sum)
-    - Partially Observable (each player has imperfect information)
-- Minimax Q?
+- Other Options
+    - Monte Carlo Tree Searching?
+        - This would only really be applicable in Singles
+        - This would be really expensive; you could create heuristics to think 2-3 turns ahead
+            - e.g. not attacking your own pokemon unless healing or weakness policy
+        - “Backwards Induction” (implemented as Alpha-Beta pruning) can help prune gamestates
+    - Zero sum games can always be reformulated to Linear Problems (Dantzig, 1951)
+    - Training against itself? (AlphaZero/AlphaGo approach)
+    - “Portfolio Optimization” would be a team builder algorithm, and is unsolved
+    - Minimax Q?
 
 
 ### Useful Links:
@@ -123,6 +112,7 @@ A bot to play VGC. Here are my initial notes from reading
 13. Create DeepLearning stuff using poke-env: https://poke-env.readthedocs.io/en/stable/getting_started.html
     1. **This is what I go with**
 14. Implemented Bot: https://github.com/pmariglia/showdown
+15. https://github.com/pkmn/EPOke
 
 ### How I got this up and running
 1. Install Git

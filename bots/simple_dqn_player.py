@@ -26,6 +26,7 @@ from rl.memory import SequentialMemory
 from tensorflow.keras.layers import Dense, Flatten, Activation, BatchNormalization, Input
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
+from tensorflow.python.keras.backend import set_session
 
 # We define our RL player
 class SimpleDQNPlayer(EnvPlayer):
@@ -52,24 +53,39 @@ class SimpleDQNPlayer(EnvPlayer):
         action_space = list(range((4 * 3 + 2)*(4 * 3 + 2)))
         self._ACTION_SPACE = action_space
 
+        # Define TF graph - from an error I got and Stack Overflow:
+        # https://datascience.stackexchange.com/questions/48984/valueerror-tensor-tensoractivation-5-softmax0-shape-2-dtype-float32
+        # https://kobkrit.com/tensor-something-is-not-an-element-of-this-graph-error-in-keras-on-flask-web-server-4173a8fe15e1
+        # https://stackoverflow.com/questions/55496289/how-to-fix-attributeerror-module-tensorflow-has-no-attribute-get-default-gr
+        self._graph = tf.compat.v1.get_default_graph()
+        self._sess = tf.compat.v1.Session()
+
         # Simple model where only one layer feeds into the next
         self._model = Sequential()
 
         # Get initializer for hidden layers
         initializer = tf.keras.initializers.RandomNormal(mean=.05, stddev=.02)
 
-        # Input Layer; TODO: input_shape needs to be the length of the battle embedding
-        self._model.add(Input(shape=(7572,)))
+        # Input Layer
+        self._model.add(Input(shape=(1, 7732)))
+        # When I had: self._model.add(Input(shape=(7732, 1)))
+        #     I got: "ValueError: Error when checking input: expected input_1 to have shape (7732, 1) but got array with shape (1, 7732)"
+        #
+        # When I had: self._model.add(Input(shape=(7732,)))
+        #     I got: "ValueError: Error when checking input: expected input_1 to have 2 dimensions, but got array with shape (1, 1, 7732)"
+        #
+        # When I had: self._model.add(Input(shape=(1, 7732))), it seems to work! But new error:
+        #   I got: "ValueError: Tensor Tensor("activation/activation/Identity:0", shape=(None, 196), dtype=float32) is not an element of this graph."
 
         # Hidden Layers
-        self._model.add(Dense(512, activation="relu", use_bias=False, kernel_initializer=initializer))
-        self._model.add(Flatten()) # Flattening resolve potential issues that would arise otherwise
-        self._model.add(Dense(256, activation="relu", use_bias=False, kernel_initializer=initializer))
+        self._model.add(Dense(512, activation="relu", use_bias=False, kernel_initializer=initializer, name='first_hidden'))
+        self._model.add(Flatten(name='flatten')) # Flattening resolve potential issues that would arise otherwise
+        self._model.add(Dense(256, activation="relu", use_bias=False, kernel_initializer=initializer, name='second_hidden'))
 
         # Output Layer
-        self._model.add(Dense(len(self._ACTION_SPACE), use_bias=False, kernel_initializer=initializer))
+        self._model.add(Dense(len(self._ACTION_SPACE), use_bias=False, kernel_initializer=initializer, name='final'))
         self._model.add(BatchNormalization()) # Increases speed: https://www.dlology.com/blog/one-simple-trick-to-train-keras-model-faster-with-batch-normalization/
-        self._model.add(Activation("linear")) # Same as passing actibation in Dense Layer, but allows us to access last layer: https://stackoverflow.com/questions/40866124/difference-between-dense-and-activation-layer-in-keras
+        self._model.add(Activation("linear")) # Same as passing activation in Dense Layer, but allows us to access last layer: https://stackoverflow.com/questions/40866124/difference-between-dense-and-activation-layer-in-keras
 
         # This is how many battles we'll remember before we start forgetting old ones
         self._memory = SequentialMemory(limit=max(num_battles, 10000), window_length=1)
@@ -223,7 +239,7 @@ class SimpleDQNPlayer(EnvPlayer):
         """
         return self._dqn
 
-    # Embeds a move in a 172-dimensional array. This includes a move's accuracy, base_power, whether it breaks protect, crit ratio, pp,
+    # Embeds a move in a 176-dimensional array. This includes a move's accuracy, base_power, whether it breaks protect, crit ratio, pp,
     # damage, drain %, expected # of hits, whether it forces a switch, how much it heals, whether it ignores abilities/defenses/evasion/immunity
     # min times it can hit, max times it can hit its priority bracket, how much recoil it causes, whether it self destructs, whether it causes you to switch/steal boosts/thaw target/
     # uses targets offense, the moves offensive category (ohe: 3), defensive category (ohe: 3), type (ohe: ), fields (ohe: ), side conditions (ohe: ), weathers (ohe: ), targeting types (ohe: 14), volatility status (ohe: 57),
@@ -231,7 +247,7 @@ class SimpleDQNPlayer(EnvPlayer):
     def _embed_move(self, move):
 
         # If the move is None or empty, return a negative array (filled w/ -1's)
-        if move is None or move.is_empty: return [-1]*172
+        if move is None or move.is_empty: return [-1]*176
 
         embeddings = []
 
@@ -249,7 +265,7 @@ class SimpleDQNPlayer(EnvPlayer):
             int(move.ignore_ability),
             int(move.ignore_defensive),
             int(move.ignore_evasion),
-            int(move.ignore_immunity),
+            1 if move.ignore_immunity else 0,
             move.n_hit[0] if move.n_hit else 1, # minimum times the move hits
             move.n_hit[1] if move.n_hit else 1, # maximum times the move hits
             move.priority,
@@ -286,7 +302,7 @@ class SimpleDQNPlayer(EnvPlayer):
         volatility_status_embeddings = []
         for vs in VolatileStatus._member_map_.values():
             if vs.name.lower().replace("_", "") == move.volatile_status: volatility_status_embeddings.append(1)
-            if vs.name.lower().replace("_", "") in list(map(lambda x: x.get('volatilityStatus', ''), move.secondary)): volatility_status_embeddings.append(1)
+            elif vs.name.lower().replace("_", "") in list(map(lambda x: x.get('volatilityStatus', ''), move.secondary)): volatility_status_embeddings.append(1)
             else: volatility_status_embeddings.append(0)
         embeddings.append(volatility_status_embeddings)
 
@@ -294,26 +310,26 @@ class SimpleDQNPlayer(EnvPlayer):
         status_embeddings = []
         for status in Status._member_map_.values():
             if status.name.lower().replace("_", "") == move.status: status_embeddings.append(1)
-            if status.name.lower().replace("_", "") in list(map(lambda x: x.get('status', ''), move.secondary)): status_embeddings.append(1)
+            elif status.name.lower().replace("_", "") in list(map(lambda x: x.get('status', ''), move.secondary)): status_embeddings.append(1)
             else: status_embeddings.append(0)
         embeddings.append(status_embeddings)
 
         # Add Boosts
-        boost_embeddings = {'atk': 0, 'def': 0, 'spa': 0, 'spd': 0, 'spe': 0}
+        boost_embeddings = {'atk': 0, 'def': 0, 'spa': 0, 'spd': 0, 'spe': 0, 'evasion': 0, 'accuracy': 0}
         if move.boosts:
             for stat in move.boosts: boost_embeddings[stat] += move.boosts[stat]
         elif move.secondary:
             for x in move.secondary:
-                for stat in x['boosts']: boost_embeddings[stat] += x.boosts[stat]
+                for stat in x.get('boosts', {}): boost_embeddings[stat] += x['boosts'][stat]
         embeddings.append(boost_embeddings.values())
 
         # Add Self-Boosts; meteormash, scaleshot, dragondance
-        self_boost_embeddings = {'atk': 0, 'def': 0, 'spa': 0, 'spd': 0, 'spe': 0}
+        self_boost_embeddings = {'atk': 0, 'def': 0, 'spa': 0, 'spd': 0, 'spe': 0, 'evasion': 0, 'accuracy': 0}
         if move.self_boost:
-            for stat in move.self_boosts: self_boost_embeddings[stat] += move.self_boosts[stat]
+            for stat in move.self_boost: self_boost_embeddings[stat] += move.self_boost[stat]
         elif move.secondary:
             for x in move.secondary:
-                for stat in x['self']['boosts']: self_boost_embeddings[stat] += x.self_boosts[stat]
+                for stat in x.get('self', {}).get('boosts', {}): self_boost_embeddings[stat] += x['self']['boosts'][stat]
         embeddings.append(self_boost_embeddings.values())
 
         # Introduce the chance of a secondary effect happening
@@ -322,11 +338,9 @@ class SimpleDQNPlayer(EnvPlayer):
             chance = max(chance, x.get('chance', 0))
         embeddings.append([chance])
 
-        to_return = [item for sublist in embeddings for item in sublist]
-        print("\t\tMove embedding length: " + str(len(to_return)))
-        return to_return
+        return [item for sublist in embeddings for item in sublist]
 
-    # We encode the opponent's mon in a 752-dimensional embedding
+    # We encode the opponent's mon in a 768-dimensional embedding
     # We encode all the mons moves, whether it is active, it's current hp, whether it's fainted, its level, weight, whether it's recharging, preparing, its stats, boosts,
     # status, types and whether it's trapped or forced to switch out.
     # We currently don't encode its item, abilities (271) or its species (1155) because of the large cardinalities
@@ -370,7 +384,7 @@ class SimpleDQNPlayer(EnvPlayer):
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
 
-    # We encode the opponent's mon in a 754-dimensional embedding
+    # We encode the opponent's mon in a 770-dimensional embedding
     # We encode all the mons moves, whether it's active, if we know it's sent, it's current hp, whether it's fainted, its level, weight, whether it's recharging,
     # preparing, its base stats (because we don't know it's IV/EV/Nature), boosts, status, types and whether it's trapped or forced to switch out.
     # We currently don't encode its item, possible abilities (271 * 3) or its species (1155) because of the large cardinalities
@@ -416,7 +430,7 @@ class SimpleDQNPlayer(EnvPlayer):
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
 
-    # Embeds the state of the battle in a 7572-dimensional embedding
+    # Embeds the state of the battle in a 7732-dimensional embedding
     # Embed mons (and whether theyre active)
     # Embed opponent mons (and whether theyre active, theyve been brought or we don't know)
     #
@@ -444,8 +458,8 @@ class SimpleDQNPlayer(EnvPlayer):
         # Add Player Ratings, the battle's turn and a bias term
         embeddings.append(list(map(lambda x: x if x else -1, [battle.rating, battle.opponent_rating, battle.turn, 1])))
 
-        # Flatten all the lists into a Nx1 list
-        return [item for sublist in embeddings for item in sublist]
+        # Flatten all the lists into a 7732, list
+        return np.array([item for sublist in embeddings for item in sublist])
 
     # Define the incremental reward for the current battle state over the last one
     def compute_reward(self, battle) -> float:
@@ -523,8 +537,20 @@ class SimpleDQNPlayer(EnvPlayer):
 
     # Because of env_player implementation, it requires an initial parameter passed, in this case, it's the object itself (player == self)
     def _training_helper(self, player, num_steps=10000):
-        self._dqn.fit(self, nb_steps=num_steps)
-        self.complete_current_battle()
+        # This is called in each thread, and it needs to refer to the original model since each thread generates their own tensorflow session by default
+        # https://kobkrit.com/tensor-something-is-not-an-element-of-this-graph-error-in-keras-on-flask-web-server-4173a8fe15e1
+        with self._graph.as_default():
+            set_session(self._sess)
+            self._dqn.fit(self, nb_steps=num_steps)
+            self.complete_current_battle()
+
+        # TODO: now I get:
+        #   "tensorflow.python.framework.errors_impl.FailedPreconditionError: Error while reading resource variable final/kernel
+        #   from Container: localhost. This could mean that the variable was uninitialized. Not found:
+        #   Resource localhost/final/kernel/N10tensorflow3VarE does not exist."
+        # Possible solutions:
+        # https://github.com/tensorflow/tensorflow/issues/28287
+        # Could also move this into the same function like they do in the Poke-Env example
 
     def train(self, opponent, num_steps) -> None:
         self.play_against(
