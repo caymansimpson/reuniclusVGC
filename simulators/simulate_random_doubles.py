@@ -7,6 +7,10 @@ from math import comb
 sys.path.append(".") # will make "bots" callable from root
 sys.path.append("..") # will make "bots" callable from simulators
 
+# TODO: figure out how to import the fork rather thantheinstall
+sys.path.append('/Users/cayman/Repositories/poke-env/src') #; https://stackoverflow.com/questions/4383571/importing-files-from-different-folder
+# print(sys.path)
+
 from poke_env.player.random_player import RandomPlayer
 from poke_env.player.utils import cross_evaluate
 from tabulate import tabulate

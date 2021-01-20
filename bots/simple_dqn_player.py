@@ -53,37 +53,22 @@ class SimpleDQNPlayer(EnvPlayer):
         action_space = list(range((4 * 3 + 2)*(4 * 3 + 2)))
         self._ACTION_SPACE = action_space
 
-        # Define TF graph - from an error I got and Stack Overflow:
-        # https://datascience.stackexchange.com/questions/48984/valueerror-tensor-tensoractivation-5-softmax0-shape-2-dtype-float32
-        # https://kobkrit.com/tensor-something-is-not-an-element-of-this-graph-error-in-keras-on-flask-web-server-4173a8fe15e1
-        # https://stackoverflow.com/questions/55496289/how-to-fix-attributeerror-module-tensorflow-has-no-attribute-get-default-gr
-        self._graph = tf.compat.v1.get_default_graph()
-        self._sess = tf.compat.v1.Session()
-
         # Simple model where only one layer feeds into the next
         self._model = Sequential()
 
         # Get initializer for hidden layers
-        initializer = tf.keras.initializers.RandomNormal(mean=.05, stddev=.02)
+        init = tf.keras.initializers.RandomNormal(mean=.05, stddev=.02)
 
-        # Input Layer
+        # Input Layer; this shape is one that just works
         self._model.add(Input(shape=(1, 7732)))
-        # When I had: self._model.add(Input(shape=(7732, 1)))
-        #     I got: "ValueError: Error when checking input: expected input_1 to have shape (7732, 1) but got array with shape (1, 7732)"
-        #
-        # When I had: self._model.add(Input(shape=(7732,)))
-        #     I got: "ValueError: Error when checking input: expected input_1 to have 2 dimensions, but got array with shape (1, 1, 7732)"
-        #
-        # When I had: self._model.add(Input(shape=(1, 7732))), it seems to work! But new error:
-        #   I got: "ValueError: Tensor Tensor("activation/activation/Identity:0", shape=(None, 196), dtype=float32) is not an element of this graph."
 
         # Hidden Layers
-        self._model.add(Dense(512, activation="relu", use_bias=False, kernel_initializer=initializer, name='first_hidden'))
+        self._model.add(Dense(512, activation="relu", use_bias=False, kernel_initializer=init, name='first_hidden'))
         self._model.add(Flatten(name='flatten')) # Flattening resolve potential issues that would arise otherwise
-        self._model.add(Dense(256, activation="relu", use_bias=False, kernel_initializer=initializer, name='second_hidden'))
+        self._model.add(Dense(256, activation="relu", use_bias=False, kernel_initializer=init, name='second_hidden'))
 
         # Output Layer
-        self._model.add(Dense(len(self._ACTION_SPACE), use_bias=False, kernel_initializer=initializer, name='final'))
+        self._model.add(Dense(len(self._ACTION_SPACE), use_bias=False, kernel_initializer=init, name='final'))
         self._model.add(BatchNormalization()) # Increases speed: https://www.dlology.com/blog/one-simple-trick-to-train-keras-model-faster-with-batch-normalization/
         self._model.add(Activation("linear")) # Same as passing activation in Dense Layer, but allows us to access last layer: https://stackoverflow.com/questions/40866124/difference-between-dense-and-activation-layer-in-keras
 
@@ -537,21 +522,15 @@ class SimpleDQNPlayer(EnvPlayer):
 
     # Because of env_player implementation, it requires an initial parameter passed, in this case, it's the object itself (player == self)
     def _training_helper(self, player, num_steps=10000):
-        # This is called in each thread, and it needs to refer to the original model since each thread generates their own tensorflow session by default
-        # https://kobkrit.com/tensor-something-is-not-an-element-of-this-graph-error-in-keras-on-flask-web-server-4173a8fe15e1
-        with self._graph.as_default():
-            set_session(self._sess)
-            self._dqn.fit(self, nb_steps=num_steps)
-            self.complete_current_battle()
+        self._dqn.fit(self, nb_steps=num_steps)
+        self.complete_current_battle()
 
         # TODO: now I get:
         #   "tensorflow.python.framework.errors_impl.FailedPreconditionError: Error while reading resource variable final/kernel
         #   from Container: localhost. This could mean that the variable was uninitialized. Not found:
         #   Resource localhost/final/kernel/N10tensorflow3VarE does not exist."
-        # Possible solutions:
-        # https://github.com/tensorflow/tensorflow/issues/28287
-        # Could also move this into the same function like they do in the Poke-Env example
 
+    # @tf.function
     def train(self, opponent, num_steps) -> None:
         self.play_against(
             env_algorithm=self._training_helper,
