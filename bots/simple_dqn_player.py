@@ -48,6 +48,7 @@ class SimpleDQNPlayer(EnvPlayer):
         tf.random.set_seed(21)
         np.random.seed(21)
 
+        # TODO: edit for dynamax
         # (4 moves * (3 possible targets) + 2 switches)*(4 moves * (3 possible targets) + 2 switches) = 196
         # This is not entirely true since you can't choose the same mon to switch to both times, but we ignore that
         action_space = list(range((4 * 3 + 2)*(4 * 3 + 2)))
@@ -102,6 +103,7 @@ class SimpleDQNPlayer(EnvPlayer):
 
         self._dqn.compile(Adam(lr=0.01), metrics=["mae"])
 
+    # TODO: edit for dynamax
     # Takes the output of our policy (which chooses from a 196-dimensional array), and converts it into a battle order
     def _action_to_move(self, action: int, battle: Battle) -> str: # pyre-ignore
         """Converts actions to move orders. There are 196 actions - and they can be thought of as a 14 x 14 matrix (first mon's possibilities
@@ -224,6 +226,7 @@ class SimpleDQNPlayer(EnvPlayer):
         """
         return self._dqn
 
+    # TODO: add dynamax
     # Embeds a move in a 176-dimensional array. This includes a move's accuracy, base_power, whether it breaks protect, crit ratio, pp,
     # damage, drain %, expected # of hits, whether it forces a switch, how much it heals, whether it ignores abilities/defenses/evasion/immunity
     # min times it can hit, max times it can hit its priority bracket, how much recoil it causes, whether it self destructs, whether it causes you to switch/steal boosts/thaw target/
@@ -415,6 +418,7 @@ class SimpleDQNPlayer(EnvPlayer):
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
 
+    # TODO: add dynamax
     # Embeds the state of the battle in a 7732-dimensional embedding
     # Embed mons (and whether theyre active)
     # Embed opponent mons (and whether theyre active, theyve been brought or we don't know)
@@ -525,12 +529,6 @@ class SimpleDQNPlayer(EnvPlayer):
         self._dqn.fit(self, nb_steps=num_steps)
         self.complete_current_battle()
 
-        # TODO: now I get:
-        #   "tensorflow.python.framework.errors_impl.FailedPreconditionError: Error while reading resource variable final/kernel
-        #   from Container: localhost. This could mean that the variable was uninitialized. Not found:
-        #   Resource localhost/final/kernel/N10tensorflow3VarE does not exist."
-
-    # @tf.function
     def train(self, opponent, num_steps) -> None:
         self.play_against(
             env_algorithm=self._training_helper,
