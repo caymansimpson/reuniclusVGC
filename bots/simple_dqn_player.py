@@ -49,9 +49,9 @@ class SimpleDQNPlayer(EnvPlayer):
         np.random.seed(21)
 
         # TODO: edit for dynamax
-        # (4 moves * (3 possible targets) + 2 switches)*(4 moves * (3 possible targets) + 2 switches) = 196
+        # (4 moves * (3 possible targets) * dynamax + 2 switches)*(4 moves * (3 possible targets) * dynamax + 2 switches) = 676
         # This is not entirely true since you can't choose the same mon to switch to both times, but we ignore that
-        action_space = list(range((4 * 3 + 2)*(4 * 3 + 2)))
+        action_space = list(range((4 * 3  * 2+ 2)*(4 * 3 * 2 + 2)))
         self._ACTION_SPACE = action_space
 
         # Simple model where only one layer feeds into the next
@@ -61,6 +61,7 @@ class SimpleDQNPlayer(EnvPlayer):
         init = tf.keras.initializers.RandomNormal(mean=.05, stddev=.02)
 
         # Input Layer; this shape is one that just works
+        # TODO: edit to the embedding size
         self._model.add(Input(shape=(1, 7732)))
 
         # Hidden Layers
@@ -103,7 +104,7 @@ class SimpleDQNPlayer(EnvPlayer):
 
         self._dqn.compile(Adam(lr=0.01), metrics=["mae"])
 
-    # TODO: edit for dynamax
+    # TODO: edit for dynamax and order
     # Takes the output of our policy (which chooses from a 196-dimensional array), and converts it into a battle order
     def _action_to_move(self, action: int, battle: Battle) -> str: # pyre-ignore
         """Converts actions to move orders. There are 196 actions - and they can be thought of as a 14 x 14 matrix (first mon's possibilities
@@ -226,7 +227,6 @@ class SimpleDQNPlayer(EnvPlayer):
         """
         return self._dqn
 
-    # TODO: add dynamax
     # Embeds a move in a 176-dimensional array. This includes a move's accuracy, base_power, whether it breaks protect, crit ratio, pp,
     # damage, drain %, expected # of hits, whether it forces a switch, how much it heals, whether it ignores abilities/defenses/evasion/immunity
     # min times it can hit, max times it can hit its priority bracket, how much recoil it causes, whether it self destructs, whether it causes you to switch/steal boosts/thaw target/
@@ -329,8 +329,8 @@ class SimpleDQNPlayer(EnvPlayer):
         return [item for sublist in embeddings for item in sublist]
 
     # We encode the opponent's mon in a 768-dimensional embedding
-    # We encode all the mons moves, whether it is active, it's current hp, whether it's fainted, its level, weight, whether it's recharging, preparing, its stats, boosts,
-    # status, types and whether it's trapped or forced to switch out.
+    # We encode all the mons moves, whether it is active, it's current hp, whether it's fainted, its level, weight, whether it's recharging, preparing, dynamaxed,
+    # its stats, boosts, status, types and whether it's trapped or forced to switch out.
     # We currently don't encode its item, abilities (271) or its species (1155) because of the large cardinalities
     def _embed_mon(self, battle, mon):
         embeddings = []
@@ -348,6 +348,7 @@ class SimpleDQNPlayer(EnvPlayer):
             mon.weight,
             int(mon.must_recharge),
             int(mon.preparing),
+            int(mon.is_dynamaxed),
         ])
 
         # Add stats and boosts
@@ -374,7 +375,7 @@ class SimpleDQNPlayer(EnvPlayer):
 
     # We encode the opponent's mon in a 770-dimensional embedding
     # We encode all the mons moves, whether it's active, if we know it's sent, it's current hp, whether it's fainted, its level, weight, whether it's recharging,
-    # preparing, its base stats (because we don't know it's IV/EV/Nature), boosts, status, types and whether it's trapped or forced to switch out.
+    # preparing, dynamaxed, its base stats (because we don't know it's IV/EV/Nature), boosts, status, types and whether it's trapped or forced to switch out.
     # We currently don't encode its item, possible abilities (271 * 3) or its species (1155) because of the large cardinalities
     # In the future, we should predict high/low ranges of stats based on damage and speeds/hail, and items based on cues
     def _embed_opp_mon(self, battle, mon):
@@ -394,6 +395,7 @@ class SimpleDQNPlayer(EnvPlayer):
             mon.weight,
             int(mon.must_recharge),
             int(mon.preparing),
+            int(mon.is_dynamaxed),
         ])
 
         # Add stats and boosts
@@ -418,7 +420,6 @@ class SimpleDQNPlayer(EnvPlayer):
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
 
-    # TODO: add dynamax
     # Embeds the state of the battle in a 7732-dimensional embedding
     # Embed mons (and whether theyre active)
     # Embed opponent mons (and whether theyre active, theyve been brought or we don't know)
@@ -434,6 +435,9 @@ class SimpleDQNPlayer(EnvPlayer):
         # Cayman added the property `teampreview_opponent_team` to double_battle
         for mon in battle.teampreview_opponent_team.values():
             embeddings.append(self._embed_opp_mon(battle, mon))
+
+        # Add Dynamax stuff
+        embeddings.append(battle.can_dynamax + battle.oponent_can_dynamax + [battle.dynamax_turns_left, battle.opponent_dynamax_turns_left])
 
         # Add Fields
         embeddings.append([1 if field in battle.fields else 0 for field in Field._member_map_.values()])

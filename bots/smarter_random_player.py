@@ -9,7 +9,7 @@ sys.path.append("..") # will make "utils" callable from simulators
 
 from poke_env.player.player import Player
 from poke_env.environment.double_battle import DoubleBattle
-from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder, BattleOrder
+from poke_env.player.battle_order import DoubleBattleOrder, DefaultDoubleBattleOrder, BattleOrder
 from poke_env.player.random_player import RandomPlayer
 from helpers.doubles_utils import *
 from bots.random_doubles_player import RandomDoublesPlayer
@@ -21,13 +21,19 @@ class SmarterRandomPlayer(Player):
     def choose_move(self, battle):
 
         orders = self.get_all_doubles_moves(battle)
+        order = None
 
         # If we're not being forced to switch and are choosing our moves
         if not any(battle.force_switch):
 
-            filtered_orders = filter(lambda x: DoubleBattleOrder.is_valid(battle, x), orders)
-            reasonable_moves = self._filter_to_reasonable_moves(battle, filtered_orders)
-            return random.choice(reasonable_moves)
+            filtered_orders = list(filter(lambda x: DoubleBattleOrder.is_valid(battle, x), orders))
+            reasonable_orders = self._filter_to_reasonable_moves(battle, filtered_orders)
+
+            if reasonable_orders: order =  random.choice(reasonable_orders)
+            if len(filtered_orders) > 0: order = random.choice(filtered_orders)
+            else: order = DefaultDoubleBattleOrder()
+
+            return order
 
         # Force Switch situation
         else: return random.choice(orders)
@@ -102,6 +108,6 @@ class SmarterRandomPlayer(Player):
 
         return False
 
-        # Get Random Team
-        def teampreview(self, battle):
-            return "/team " + "".join(random.sample(list(map(lambda x: str(x+1), range(0, len(battle.team)))), k=4))
+    # Get Random Team
+    def teampreview(self, battle):
+        return "/team " + "".join(random.sample(list(map(lambda x: str(x+1), range(0, len(battle.team)))), k=4))
