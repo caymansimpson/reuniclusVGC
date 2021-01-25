@@ -15,6 +15,8 @@ from poke_env.environment.status import Status
 from poke_env.environment.weather import Weather
 from poke_env.environment.pokemon_type import PokemonType
 from poke_env.environment.move_category import MoveCategory
+from poke_env.environment.target_type import TargetType
+from poke_env.environment.volatile_status import VolatileStatus
 from poke_env.environment.battle import Battle
 
 from helpers.doubles_utils import *
@@ -50,8 +52,9 @@ class SimpleDQNPlayer(EnvPlayer):
 
         # TODO: edit for dynamax
         # (4 moves * (3 possible targets) * dynamax + 2 switches)*(4 moves * (3 possible targets) * dynamax + 2 switches) = 676
-        # This is not entirely true since you can't choose the same mon to switch to both times, but we ignore that
-        action_space = list(range((4 * 3  * 2+ 2)*(4 * 3 * 2 + 2)))
+        # This is not entirely true since you can't choose the same mon to switch to both times, or you cant dynamax two mons at the same time
+        # but it's easier to do it this way
+        action_space = list(range((4 * 3  * 2 + 2)*(4 * 3 * 2 + 2)))
         self._ACTION_SPACE = action_space
 
         # Simple model where only one layer feeds into the next
@@ -62,7 +65,7 @@ class SimpleDQNPlayer(EnvPlayer):
 
         # Input Layer; this shape is one that just works
         # TODO: edit to the embedding size
-        self._model.add(Input(shape=(1, 7732)))
+        self._model.add(Input(shape=(1, 7782)))
 
         # Hidden Layers
         self._model.add(Dense(512, activation="relu", use_bias=False, kernel_initializer=init, name='first_hidden'))
@@ -104,12 +107,41 @@ class SimpleDQNPlayer(EnvPlayer):
 
         self._dqn.compile(Adam(lr=0.01), metrics=["mae"])
 
-    # TODO: edit for dynamax and order
-    # Takes the output of our policy (which chooses from a 196-dimensional array), and converts it into a battle order
+    # Converts int into one of the (4 moves * (3 possible targets) * dynamax + 2 switches) = 26 options
+    def _action_to_single_move(action: int, index: int, battle):
+        if action < 24:
+            if not battle.active_pokemon[index]: return DefaultDoubleBattleOrder()
+            dynamax, remaining = action % 2 == 1, action / 2
+            if battle.active_pokemon[index] and int(remaining/3) < len(battle.active_pokemon[index].moves):
+                move, initial_target = list(battle.active_pokemon[index].moves.values())[int(remaining/3)], remaining % 3
+
+                # If there's no target needed, we create the action as we normally would. It doesn't matter what our AI returned as target since there's only one possible target
+                if move.deduced_target not in ['adjacentAlly', 'adjacentAllyOrSelf', 'any', 'normal']:
+                    return BattleOrder(order=move, actor=battle.active_pokemon[index])
+
+                # If we are targeting a single mon, there are three cases: your other mon, the opponents mon or their other mon.
+                # 2 corresponds to your mon and 0/1 correspond to the opponents mons (index in opponent_active_mon)
+                # For the self-taret case, we ensure there's another mon on our side to hit (otherwise we leave action1 as None)
+                elif initial_target == 2 and battle.active_pokemon[1] is not None:
+                    return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(1-index, opp=False), actor=battle.active_pokemon[index])
+
+                # In the last case (if initial_target is 0 or 1), we target the opponent, and we do it regardless of what slot was
+                # chosen if there's only 1 mon left. In the following cases, we handle whether there are two mons left or one mon left
+                elif len(battle.opponent_active_pokemon) == 2 and all(battle.opponent_active_pokemon):
+                    return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(initial_target, opp=True), actor=battle.active_pokemon[index])
+                elif len(battle.opponent_active_pokemon) < 2 and any(battle.opponent_active_pokemon):
+                    initial_target = 1 if battle.opponent_active_pokemon[0] is not None else 0
+                    return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(initial_target, opp=True), actor=battle.active_pokemon[index])
+
+        else: return BattleOrder(order=battle.available_switches[index][25-action], actor=battle.available_pokemon[index])
+
+        return DefaultBattleOrder()
+
+    # Takes the output of our policy (which chooses from a 676-dimensional array), and converts it into a battle order
     def _action_to_move(self, action: int, battle: Battle) -> str: # pyre-ignore
-        """Converts actions to move orders. There are 196 actions - and they can be thought of as a 14 x 14 matrix (first mon's possibilities
+        """Converts actions to move orders. There are 676 actions - and they can be thought of as a 26 x 26 matrix (first mon's possibilities
         and second mon's possibilities). This is not quite true because you cant choose the same mon twice to switch to, but we handle that when
-        determining the legality of the move choices later; Ii the proposed action is illegal, a random legal move is performed.
+        determining the legality of the move choices later; If the proposed action is illegal, a random legal move is performed.
         The conversion is done as follows:
 
         :param action: The action to convert.
@@ -119,75 +151,10 @@ class SimpleDQNPlayer(EnvPlayer):
         :return: the order to send to the server.
         :rtype: str
         """
-
-        # We store the row in action1_int and the col in action2_int
-        action1_int = int(action/14)
-        action2_int = action % 14
-        action1, action2 = None, None
-
-        # Section - convert our first action_int (row) into a move
-        # First 12 ints [0, 11] correspond to moves and the 12 and 13th positions are switches
-        # leaves action1 is None if a move doesnt exist
-        if battle.active_pokemon[0] and action1_int < 12:
-            if int(action1_int/3) < len(battle.active_pokemon[0].moves):
-                move = list(battle.active_pokemon[0].moves.values())[int(action1_int/3)]
-                initial_target = action1_int % 3
-
-                # If there's no target needed, we create the action as we normally would. It doesn't matter what our AI returned as target since there's only one possible target
-                if move.deduced_target not in ['adjacentAlly', 'adjacentAllyOrSelf', 'any', 'normal']:
-                    action1 = Action(battle.active_pokemon[0], move, [0])
-
-                # If we are targeting a single mon, there are three cases: your other mon, the opponents mon or their other mon.
-                # 2 corresponds to your mon and 0/1 correspond to the opponents mons (index in opponent_active_mon)
-                # For the self-taret case, we ensure there's another mon on our side to hit (otherwise we leave action1 as None)
-                elif initial_target == 2 and battle.active_pokemon[1] is not None:
-                    action1 = Action(battle.active_pokemon[0], move, [active_pokemon_to_showdown_target(1, opp=False)])
-
-                # In the last case (if initial_target is 0 or 1), we target the opponent, and we do it regardless of what slot was
-                # chosen if there's only 1 mon left. In the following cases, we handle whether there are two mons left or one mon left
-                elif len(battle.opponent_active_pokemon) == 2 and all(battle.opponent_active_pokemon):
-                    action1 = Action(battle.active_pokemon[0], move, [active_pokemon_to_showdown_target(initial_target, opp=True)])
-                elif len(battle.opponent_active_pokemon) < 2 or any(battle.opponent_active_pokemon):
-                    initial_target = 1 if battle.opponent_active_pokemon[0] is not None else 0
-                    action1 = Action(battle.active_pokemon[0], move, [active_pokemon_to_showdown_target(target_index, opp=True)])
-
-        # Handle Switching cases - leaves action1 None if a switch isnt possible
-        elif battle.active_pokemon[0] and action1_int - 12 < len(battle.available_switches[0]):
-            if battle.available_switches[0][action1_int - 12]:
-                action1 = Action(battle.active_pokemon[0], battle.available_switches[0][action1_int - 12])
-
-        # Section - convert our second action_int (col) into a move
-        if battle.active_pokemon[1] and action2_int < 12:
-            if int(action2_int/3) < len(battle.active_pokemon[1].moves):
-                move = list(battle.active_pokemon[1].moves.values())[int(action2_int/3)]
-                initial_target = action2_int % 3
-
-                if move.deduced_target not in ['adjacentAlly', 'adjacentAllyOrSelf', 'any', 'normal']:
-                    action2 = Action(battle.active_pokemon[1], move, [0])
-
-                elif initial_target == 2 and battle.active_pokemon[1] is not None:
-                    action2 = Action(battle.active_pokemon[1], move, [active_pokemon_to_showdown_target(0, opp=False)])
-
-                elif len(battle.opponent_active_pokemon) == 2 and all(battle.opponent_active_pokemon):
-                    action2 = Action(battle.active_pokemon[1], move, [active_pokemon_to_showdown_target(initial_target, opp=True)])
-                elif len(battle.opponent_active_pokemon) < 2 or any(battle.opponent_active_pokemon):
-                    initial_target = 1 if battle.opponent_active_pokemon[0] is not None else 0
-                    action2 = Action(battle.active_pokemon[1], move, [active_pokemon_to_showdown_target(target_index, opp=True)])
-
-        elif battle.active_pokemon[1] and action2_int - 12 < len(battle.available_switches[1]):
-            if battle.available_switches[1][action2_int - 12]:
-                action2 = Action(battle.active_pokemon[1], battle.available_switches[1][action2_int - 12])
-
-        # Section - validate move choices from our two action_ints:
-        # - If we have one action and one mon left, we return the move for that mon
-        # - If it looks like a valid move, we return it
-        # - Otherwise, we return a random move
-        if (action1 is None or action2 is None) and (not all(battle.active_pokemon) or len(battle.active_pokemon) < 2):
-            return '/choose ' + (action1 if action1 else action2).showdownify() + ',default'
-        elif action1 and action2 and len(filter_to_possible_moves(battle, [(action1, action2)])) > 0:
-            return '/choose ' + action1.showdownify() + ',' + action2.showdownify()
-        else:
-            return RandomDoublesPlayer().choose_move(battle)
+        row, col = action % 26, action / 26
+        double_order = DoubleBattleOrder(first_order = self._action_to_single_move(row, 0, battle), second_order = self._action_to_single_move(col, 1, battle))
+        if DoubleBattleOrder.is_valid(double_order): return double_order
+        else: return DefaultDoubleBattleOrder()
 
     @property
     def action_space(self) -> List:
@@ -227,7 +194,7 @@ class SimpleDQNPlayer(EnvPlayer):
         """
         return self._dqn
 
-    # Embeds a move in a 176-dimensional array. This includes a move's accuracy, base_power, whether it breaks protect, crit ratio, pp,
+    # Embeds a move in a 178-dimensional array. This includes a move's accuracy, base_power, whether it breaks protect, crit ratio, pp,
     # damage, drain %, expected # of hits, whether it forces a switch, how much it heals, whether it ignores abilities/defenses/evasion/immunity
     # min times it can hit, max times it can hit its priority bracket, how much recoil it causes, whether it self destructs, whether it causes you to switch/steal boosts/thaw target/
     # uses targets offense, the moves offensive category (ohe: 3), defensive category (ohe: 3), type (ohe: ), fields (ohe: ), side conditions (ohe: ), weathers (ohe: ), targeting types (ohe: 14), volatility status (ohe: 57),
@@ -328,7 +295,7 @@ class SimpleDQNPlayer(EnvPlayer):
 
         return [item for sublist in embeddings for item in sublist]
 
-    # We encode the opponent's mon in a 768-dimensional embedding
+    # We encode the opponent's mon in a 779-dimensional embedding
     # We encode all the mons moves, whether it is active, it's current hp, whether it's fainted, its level, weight, whether it's recharging, preparing, dynamaxed,
     # its stats, boosts, status, types and whether it's trapped or forced to switch out.
     # We currently don't encode its item, abilities (271) or its species (1155) because of the large cardinalities
@@ -373,7 +340,7 @@ class SimpleDQNPlayer(EnvPlayer):
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
 
-    # We encode the opponent's mon in a 770-dimensional embedding
+    # We encode the opponent's mon in a 771-dimensional embedding
     # We encode all the mons moves, whether it's active, if we know it's sent, it's current hp, whether it's fainted, its level, weight, whether it's recharging,
     # preparing, dynamaxed, its base stats (because we don't know it's IV/EV/Nature), boosts, status, types and whether it's trapped or forced to switch out.
     # We currently don't encode its item, possible abilities (271 * 3) or its species (1155) because of the large cardinalities
@@ -420,7 +387,7 @@ class SimpleDQNPlayer(EnvPlayer):
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
 
-    # Embeds the state of the battle in a 7732-dimensional embedding
+    # Embeds the state of the battle in a 7782-dimensional embedding
     # Embed mons (and whether theyre active)
     # Embed opponent mons (and whether theyre active, theyve been brought or we don't know)
     #
@@ -437,7 +404,7 @@ class SimpleDQNPlayer(EnvPlayer):
             embeddings.append(self._embed_opp_mon(battle, mon))
 
         # Add Dynamax stuff
-        embeddings.append(battle.can_dynamax + battle.oponent_can_dynamax + [battle.dynamax_turns_left, battle.opponent_dynamax_turns_left])
+        embeddings.append(battle.can_dynamax + battle.opponent_can_dynamax + [battle.dynamax_turns_left, battle.opponent_dynamax_turns_left])
 
         # Add Fields
         embeddings.append([1 if field in battle.fields else 0 for field in Field._member_map_.values()])
@@ -581,4 +548,4 @@ class SimpleDQNPlayer(EnvPlayer):
 
         # We start with the one we consider best overall
         # We use i + 1 as python indexes start from 0 but showdown's indexes start from 1, and return the first 4 mons, in term of importance
-        return "/team " + "".join([str(i + 1) if i <= 3 else "6" for i in ordered_mons])
+        return "/team " + "".join([str(i + 1) for i in ordered_mons])
