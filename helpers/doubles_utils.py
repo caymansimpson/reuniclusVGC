@@ -66,15 +66,15 @@ def compute_effective_speed(battle, mon):
 
     # Incorporate status (Paralysis) if the mon doesnt have quickfeed
     if mon.ability == 'Quick Feet' and not mon.status: speed *= 1.5
-    elif mon.status.name == 'PAR': speed *= .5 # Status(4) corresponds to paralysis
+    elif mon.status and mon.status == Status.PAR: speed *= .5 # Status(4) corresponds to paralysis
 
     # Held Items (choice scarf, iron ball)
     if mon.item == 'ironball': speed *= .5
     elif mon.item == 'choicescarf': speed *= 1.5
 
     # Side Conditions
-    if Status.GRASS_PLEDGE in battle.side_conditions: speed *= .25 # GRASS_PLEDGE, or creating a swamp
-    elif Status.TAILWIND in battle.side_conditions: speed *= 2 # TAILWIND
+    if SideCondition.GRASS_PLEDGE in battle.side_conditions: speed *= .25 # GRASS_PLEDGE, or creating a swamp
+    elif SideCondition.TAILWIND in battle.side_conditions: speed *= 2 # TAILWIND
 
     return speed
 
@@ -102,7 +102,7 @@ def compute_worst_case_scenario_speed(battle, mon):
 
     # Incorporate status (Paralysis) if the mon doesnt have quickfeed
     if mon.ability == 'Quick Feet' and not mon.status: speed *= 1.5
-    elif mon.status.name == 'PAR': speed *= .5 # Status(4) corresponds to paralysis
+    elif mon.status == Status.PAR: speed *= .5 # Status(4) corresponds to paralysis
 
     # We don't take into account Held Items (choice scarf, iron ball) because it would make this reward useless
     # in situations where they aren't available. Eventually, we need to run code to use all battle cues (hail, sandstorm, mon order)
@@ -111,8 +111,8 @@ def compute_worst_case_scenario_speed(battle, mon):
     # elif mon.item == 'choicescarf': speed *= 1.5
 
     # Side Conditions
-    if Status.GRASS_PLEDGE in battle.side_conditions: speed *= .25 # GRASS_PLEDGE, or creating a swamp
-    elif Status.TAILWIND in battle.side_conditions: speed *= 2 # TAILWIND
+    if SideCondition.GRASS_PLEDGE in battle.side_conditions: speed *= .25 # GRASS_PLEDGE, or creating a swamp
+    elif SideCondition.TAILWIND in battle.side_conditions: speed *= 2 # TAILWIND
 
     return speed
 

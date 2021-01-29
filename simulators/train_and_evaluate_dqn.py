@@ -2,7 +2,6 @@
 import asyncio
 import sys
 import random
-from math import comb
 
 sys.path.append(".") # will make "bots" callable from root
 sys.path.append("..") # will make "bots" callable from simulators
@@ -30,14 +29,14 @@ def main():
     max_opp = MaxDamagePlayer(battle_format="gen8vgc2021", team=TeamRepository.teams['regirock'])
 
     # Train
-    print("Training against random opponent 10,000 times...")
+    print("\033[94mTraining against random opponent 10,000 times...\033[0m")
     plyr.train(random_opp, 10000)
-    print("Training against max opponent 10,000 times...")
+    print("\033[94mTraining against max opponent 10,000 times...\033[0m")
     plyr.train(max_opp, 10000)
     plyr.save_model()
 
     # Evaluate
-    print("Results against random players:")
+    print("\033[94mResults against random players:\033[0m")
     plyr.evaluate_model(random_opp, 100)
     plyr.evaluate_model(max_opp, 100)
 

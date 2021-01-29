@@ -12,7 +12,7 @@ from poke_env.player.random_player import RandomPlayer
 from poke_env.player.utils import cross_evaluate
 from tabulate import tabulate
 from bots.random_doubles_player import RandomDoublesPlayer
-from bots.smarter_random_player import SmarterRandomPlayer
+from bots.io_player import IOPlayer
 from bots.max_damage_player import MaxDamagePlayer
 from helpers.team_repo import TeamRepository
 
@@ -22,24 +22,12 @@ async def main():
 
     # We create players:
     players = [
-      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['mamoswine']),
-      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['spectrier']),
-    #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['edgecase']),
-      # SmarterRandomPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['doubleturn']),
-    #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['switch']),
-    #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['edgecase']),
-    #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['pledge']),
-    #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['garchomp']),
-      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['regirock']),
-      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['swampert']),
-      # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['garchomp']),
-      #MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['garchomp']),
-      SmarterRandomPlayer(max_concurrent_battles=1, battle_format="gen8vgc2021", team=TeamRepository.teams['swampert']),
+      IOPlayer(max_concurrent_battles=1, battle_format="gen8vgc2021", team=TeamRepository.teams['swampert']),
       RandomDoublesPlayer(max_concurrent_battles=1, battle_format="gen8vgc2021", team=TeamRepository.teams['garchomp']),
     ]
 
     # Each player plays n times against eac other
-    n = 100
+    n = 1
 
     # Pit players against each other
     print("About to start " + str(n*sum(i for i in range(0, len(players)))) + " battles...")

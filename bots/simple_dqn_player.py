@@ -18,6 +18,9 @@ from poke_env.environment.move_category import MoveCategory
 from poke_env.environment.target_type import TargetType
 from poke_env.environment.volatile_status import VolatileStatus
 from poke_env.environment.battle import Battle
+from bots.random_doubles_player import RandomDoublesPlayer
+
+from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder, BattleOrder, DefaultDoubleBattleOrder
 
 from helpers.doubles_utils import *
 
@@ -36,104 +39,102 @@ class SimpleDQNPlayer(EnvPlayer):
     def __init__(self, num_battles=10000, **kwargs):
         super().__init__(**kwargs)
 
-        # We need to define how much we're going to train
-        self._num_battles = num_battles
+        self._random_player = RandomDoublesPlayer()
 
-        # Redefine the buffer defined in env_player; this will be turn (int) => reward and will be reset every battle
-        # So that we can compute te difference between this reward and the last state
+        # # We need to define how much we're going to train
+        # self._num_battles = num_battles
+
+        # # Redefine the buffer defined in env_player; this will be turn (int) => reward and will be reset every battle
+        # # So that we can compute te difference between this reward and the last state
         self._reward_buffer = {}
 
-        # Save all possible mons that the opponent can have in teampreview for future use, and also the mons that we chose
-        self._opponent_possible_mons, self._our_mons = [], []
+        # # Ensure stability and reproducibility
+        # tf.random.set_seed(21)
+        # np.random.seed(21)
 
-        # Ensure stability and reproducibility
-        tf.random.set_seed(21)
-        np.random.seed(21)
-
-        # TODO: edit for dynamax
-        # (4 moves * (3 possible targets) * dynamax + 2 switches)*(4 moves * (3 possible targets) * dynamax + 2 switches) = 676
-        # This is not entirely true since you can't choose the same mon to switch to both times, or you cant dynamax two mons at the same time
-        # but it's easier to do it this way
+        # # (4 moves * (3 possible targets) * dynamax + 2 switches)*(4 moves * (3 possible targets) * dynamax + 2 switches) = 676
+        # # This is not entirely true since you can't choose the same mon to switch to both times, or you cant dynamax two mons at the same time
+        # # but it's easier to do it this way
         action_space = list(range((4 * 3  * 2 + 2)*(4 * 3 * 2 + 2)))
         self._ACTION_SPACE = action_space
 
-        # Simple model where only one layer feeds into the next
-        self._model = Sequential()
+        # # Simple model where only one layer feeds into the next
+        # self._model = Sequential()
 
-        # Get initializer for hidden layers
-        init = tf.keras.initializers.RandomNormal(mean=.05, stddev=.02)
+        # # Get initializer for hidden layers
+        # init = tf.keras.initializers.RandomNormal(mean=.1, stddev=.02)
 
-        # Input Layer; this shape is one that just works
-        # TODO: edit to the embedding size
-        self._model.add(Input(shape=(1, 7782)))
+        # # Input Layer; this shape is one that just works
+        # self._model.add(Dense(512, input_shape=(1, 7782), activation="relu", use_bias=False, kernel_initializer=init, name='first_hidden'))
 
-        # Hidden Layers
-        self._model.add(Dense(512, activation="relu", use_bias=False, kernel_initializer=init, name='first_hidden'))
-        self._model.add(Flatten(name='flatten')) # Flattening resolve potential issues that would arise otherwise
-        self._model.add(Dense(256, activation="relu", use_bias=False, kernel_initializer=init, name='second_hidden'))
+        # # Hidden Layers
+        # self._model.add(Flatten(name='flatten')) # Flattening resolve potential issues that would arise otherwise
+        # self._model.add(Dense(256, activation="relu", use_bias=False, kernel_initializer=init, name='second_hidden'))
 
-        # Output Layer
-        self._model.add(Dense(len(self._ACTION_SPACE), use_bias=False, kernel_initializer=init, name='final'))
-        self._model.add(BatchNormalization()) # Increases speed: https://www.dlology.com/blog/one-simple-trick-to-train-keras-model-faster-with-batch-normalization/
-        self._model.add(Activation("linear")) # Same as passing activation in Dense Layer, but allows us to access last layer: https://stackoverflow.com/questions/40866124/difference-between-dense-and-activation-layer-in-keras
+        # # Output Layer
+        # self._model.add(Dense(len(self._ACTION_SPACE), use_bias=False, kernel_initializer=init, name='final'))
+        # self._model.add(BatchNormalization()) # Increases speed: https://www.dlology.com/blog/one-simple-trick-to-train-keras-model-faster-with-batch-normalization/
+        # self._model.add(Activation("linear")) # Same as passing activation in Dense Layer, but allows us to access last layer: https://stackoverflow.com/questions/40866124/difference-between-dense-and-activation-layer-in-keras
 
-        # This is how many battles we'll remember before we start forgetting old ones
-        self._memory = SequentialMemory(limit=max(num_battles, 10000), window_length=1)
+        # # This is how many battles we'll remember before we start forgetting old ones
+        # self._memory = SequentialMemory(limit=max(num_battles, 10000), window_length=1)
 
-        # Simple epsilon greedy policy
-        # This takes the output of our NeuralNet and converts it to a value
-        # Softmax is another probabilistic option: https://github.com/keras-rl/keras-rl/blob/master/rl/policy.py#L120
-        self._policy = LinearAnnealedPolicy(
-            MaxBoltzmannQPolicy(),
-            attr="eps",
-            value_max=1.0,
-            value_min=0.05,
-            value_test=0,
-            nb_steps=num_battles,
-        )
+        # # Simple epsilon greedy policy
+        # # This takes the output of our NeuralNet and converts it to a value
+        # # Softmax is another probabilistic option: https://github.com/keras-rl/keras-rl/blob/master/rl/policy.py#L120
+        # self._policy = LinearAnnealedPolicy(
+        #     MaxBoltzmannQPolicy(),
+        #     attr="eps",
+        #     value_max=1.0,
+        #     value_min=0.05,
+        #     value_test=0,
+        #     nb_steps=num_battles,
+        # )
 
-        # Defining our DQN
-        self._dqn = DQNAgent(
-            model=self._model,
-            nb_actions=len(action_space),
-            policy=self._policy,
-            memory=self._memory,
-            nb_steps_warmup=max(1000, int(num_battles/10)), # The number of battles we go through before we start training: https://hub.packtpub.com/build-reinforcement-learning-agent-in-keras-tutorial/
-            gamma=0.9, # This is the discount factor for the Value we learn - we care a lot about future rewards
-            target_model_update=.01, # This controls how much/when our model updates: https://github.com/keras-rl/keras-rl/issues/55
-            delta_clip=1, # Helps define Huber loss - cips values to be -1 < x < 1. https://srome.github.io/A-Tour-Of-Gotchas-When-Implementing-Deep-Q-Networks-With-Keras-And-OpenAi-Gym/
-            enable_double_dqn=True,
-        )
+        # # Defining our DQN
+        # self._dqn = DQNAgent(
+        #     model=self._model,
+        #     nb_actions=len(action_space),
+        #     policy=self._policy,
+        #     memory=self._memory,
+        #     nb_steps_warmup=max(1000, int(num_battles/10)), # The number of battles we go through before we start training: https://hub.packtpub.com/build-reinforcement-learning-agent-in-keras-tutorial/
+        #     gamma=0.8, # This is the discount factor for the Value we learn - we care a lot about future rewards
+        #     target_model_update=.01, # This controls how much/when our model updates: https://github.com/keras-rl/keras-rl/issues/55
+        #     delta_clip=1, # Helps define Huber loss - cips values to be -1 < x < 1. https://srome.github.io/A-Tour-Of-Gotchas-When-Implementing-Deep-Q-Networks-With-Keras-And-OpenAi-Gym/
+        #     enable_double_dqn=True,
+        # )
 
-        self._dqn.compile(Adam(lr=0.01), metrics=["mae"])
+        # self._dqn.compile(Adam(lr=0.01), metrics=["mae"])
 
-    # Converts int into one of the (4 moves * (3 possible targets) * dynamax + 2 switches) = 26 options
-    def _action_to_single_move(action: int, index: int, battle):
+    def _action_to_single_move(self, action: int, index: int, battle):
         if action < 24:
-            if not battle.active_pokemon[index]: return DefaultDoubleBattleOrder()
-            dynamax, remaining = action % 2 == 1, action / 2
+            # If either there is no mon or we're forced to switch, there's nothing to do
+            if not battle.active_pokemon[index] or battle.force_switch[index]: return DefaultBattleOrder()
+            dynamax, remaining = action % 2 == 1, int(action / 2)
             if battle.active_pokemon[index] and int(remaining/3) < len(battle.active_pokemon[index].moves):
                 move, initial_target = list(battle.active_pokemon[index].moves.values())[int(remaining/3)], remaining % 3
 
                 # If there's no target needed, we create the action as we normally would. It doesn't matter what our AI returned as target since there's only one possible target
                 if move.deduced_target not in ['adjacentAlly', 'adjacentAllyOrSelf', 'any', 'normal']:
-                    return BattleOrder(order=move, actor=battle.active_pokemon[index])
+                    return BattleOrder(order=move, actor=battle.active_pokemon[index], dynamax=dynamax)
 
                 # If we are targeting a single mon, there are three cases: your other mon, the opponents mon or their other mon.
                 # 2 corresponds to your mon and 0/1 correspond to the opponents mons (index in opponent_active_mon)
                 # For the self-taret case, we ensure there's another mon on our side to hit (otherwise we leave action1 as None)
-                elif initial_target == 2 and battle.active_pokemon[1] is not None:
-                    return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(1-index, opp=False), actor=battle.active_pokemon[index])
+                elif initial_target == 2:
+                    if battle.active_pokemon[1] is not None:
+                        return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(1-index, opp=False), actor=battle.active_pokemon[index], dynamax=dynamax)
 
                 # In the last case (if initial_target is 0 or 1), we target the opponent, and we do it regardless of what slot was
                 # chosen if there's only 1 mon left. In the following cases, we handle whether there are two mons left or one mon left
                 elif len(battle.opponent_active_pokemon) == 2 and all(battle.opponent_active_pokemon):
-                    return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(initial_target, opp=True), actor=battle.active_pokemon[index])
+                    return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(initial_target, opp=True), actor=battle.active_pokemon[index], dynamax=dynamax)
                 elif len(battle.opponent_active_pokemon) < 2 and any(battle.opponent_active_pokemon):
                     initial_target = 1 if battle.opponent_active_pokemon[0] is not None else 0
-                    return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(initial_target, opp=True), actor=battle.active_pokemon[index])
+                    return BattleOrder(order=move, move_target=battle.active_pokemon_to_showdown_target(initial_target, opp=True), actor=battle.active_pokemon[index], dynamax=dynamax)
 
-        else: return BattleOrder(order=battle.available_switches[index][25-action], actor=battle.available_pokemon[index])
+        elif 25 - action < len(battle.available_switches[index]):
+            return BattleOrder(order=battle.available_switches[index][25-action], actor=battle.active_pokemon[index])
 
         return DefaultBattleOrder()
 
@@ -151,10 +152,12 @@ class SimpleDQNPlayer(EnvPlayer):
         :return: the order to send to the server.
         :rtype: str
         """
-        row, col = action % 26, action / 26
-        double_order = DoubleBattleOrder(first_order = self._action_to_single_move(row, 0, battle), second_order = self._action_to_single_move(col, 1, battle))
-        if DoubleBattleOrder.is_valid(double_order): return double_order
-        else: return DefaultDoubleBattleOrder()
+        row, col = action % 26, int(action / 26)
+        first_order = self._action_to_single_move(row, 0, battle) if battle.active_pokemon[0] else None
+        second_order = self._action_to_single_move(row, 1, battle) if battle.active_pokemon[1] else None
+        double_order = DoubleBattleOrder(first_order=first_order, second_order=second_order)
+        if DoubleBattleOrder.is_valid(battle, double_order): return double_order
+        else: return self._random_player.choose_move(battle)
 
     @property
     def action_space(self) -> List:
@@ -447,7 +450,8 @@ class SimpleDQNPlayer(EnvPlayer):
 
         # Initialize our reward buffer if this is the first turn in a battle. Since we incorporate speed and type advantage,
         # our turn 0 reward will be non-0
-        if battle.turn == 0: self._reward_buffer = {-1: 0}
+        if battle not in self._reward_buffer:
+            self._reward_buffer[battle] = starting_value
 
         # Incorporate rewards for our team
         for mon in battle.team.values():
@@ -465,12 +469,13 @@ class SimpleDQNPlayer(EnvPlayer):
 
         # Add pokemon boost, account for paralysis, battle.side_conditions & battle.opponent_side_conditions
         for mon in battle.active_pokemon:
-            mon_spe = compute_effective_speed(battle, mon)
-            for opp_mon in battle.opponent_active_pokemon:
-                opp_spe = compute_worst_case_scenario_speed(battle, mon)
-                if mon_spe == opp_spe: current_value += 0
-                elif mon_spe > opp_spe or (mon_spe < opp_spe and Field.TRICK_ROOM in battle.fields): current_value += speed_value # Trick Room is the 10th enum
-                else: current_value -= speed_value
+            if mon:
+                mon_spe = compute_effective_speed(battle, mon)
+                for opp_mon in battle.opponent_active_pokemon:
+                    opp_spe = compute_worst_case_scenario_speed(battle, mon)
+                    if mon_spe == opp_spe: current_value += 0
+                    elif mon_spe > opp_spe or (mon_spe < opp_spe and Field.TRICK_ROOM in battle.fields): current_value += speed_value # Trick Room is the 10th enum
+                    else: current_value -= speed_value
 
 
         # Count type advantages of pokmemon by summing up all advantages of active pokemon, and then assign reward based on
@@ -479,7 +484,8 @@ class SimpleDQNPlayer(EnvPlayer):
         total = 0
         for mon in battle.active_pokemon:
             for opp_mon in battle.opponent_active_pokemon:
-                total = compute_type_advantage(mon, opp_mon) - compute_type_advantage(opp_mon, mon)
+                if mon and opp_mon:
+                    total = compute_type_advantage(mon, opp_mon) - compute_type_advantage(opp_mon, mon)
 
         normalized_type_advantage = total / (1.5 * len(battle.active_pokemon)*len(battle.opponent_active_pokemon)) # Normalize
         normalized_type_advantage = max(min(normalized_type_advantage, 1), -1) # Squish to between -1 and 1
@@ -490,8 +496,8 @@ class SimpleDQNPlayer(EnvPlayer):
         elif battle.lost: current_value -= victory_value
 
         # We return the difference between rewards now and save this battle turn's reward for the next turn
-        to_return = current_value - self._reward_buffer[battle.turn - 1]
-        self._reward_buffer[battle.turn] = current_value
+        to_return = current_value - self._reward_buffer[battle]
+        self._reward_buffer[battle] = current_value
 
         return to_return
 
@@ -527,8 +533,9 @@ class SimpleDQNPlayer(EnvPlayer):
         if battle not in self._observations or battle not in self._actions: self._init_battle(battle)
         self._observations[battle].put(self.embed_battle(battle))
         action = self._actions[battle].get()
+        order = self._action_to_move(action, battle)
 
-        return self._action_to_move(action, battle)
+        return order
 
     # Same as max damage for now - we return the mons who have the best average type advantages against the other team
     # TODO: implement with AI
