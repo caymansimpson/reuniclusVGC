@@ -446,12 +446,13 @@ class SimpleDQNPlayer(EnvPlayer):
         """
 
         current_value = 0
-        victory_value, fainted_value, hp_value, status_value, speed_value, type_value, starting_value = 1000, 100, 25, 25, 10, 100, 0
+        victory_value, fainted_value, hp_value, status_value, speed_value, type_value, starting_value = 5000, 100, 25, 25, 10, 100, 0
 
         # Initialize our reward buffer if this is the first turn in a battle. Since we incorporate speed and type advantage,
         # our turn 0 reward will be non-0
         if battle not in self._reward_buffer:
             self._reward_buffer[battle] = starting_value
+
 
         # Incorporate rewards for our team
         for mon in battle.team.values():
@@ -466,7 +467,7 @@ class SimpleDQNPlayer(EnvPlayer):
             if mon.fainted: current_value += fainted_value
             if not mon.fainted and mon.status is not None: current_value += status_value
 
-
+        """
         # Add pokemon boost, account for paralysis, battle.side_conditions & battle.opponent_side_conditions
         for mon in battle.active_pokemon:
             if mon:
@@ -490,6 +491,7 @@ class SimpleDQNPlayer(EnvPlayer):
         normalized_type_advantage = total / (1.5 * len(battle.active_pokemon)*len(battle.opponent_active_pokemon)) # Normalize
         normalized_type_advantage = max(min(normalized_type_advantage, 1), -1) # Squish to between -1 and 1
         current_value += normalized_type_advantage * type_value
+        """
 
         # Victory condition
         if battle.won: current_value += victory_value

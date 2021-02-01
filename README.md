@@ -1,5 +1,5 @@
 # reuniclusVGC
-A bot to play VGC. Here are my initial notes from reading
+Bots to play VGC. Here are my initial notes from readings:
 
 ### Rules of Pokemon that make it hard:
 1. You and opponent make turns simultaneously
@@ -20,13 +20,19 @@ A bot to play VGC. Here are my initial notes from reading
     6. Pokemon brought
 
 ### ML basics:
-- We need to learn a “policy”. Given the game state, and thus a set of possible actions, ML will choose the most optimal action
+- We need to learn a “policy”; given the game state, and thus a set of possible actions, ML will choose the most optimal action
 - Because of terms like “reverse sweeping” (e.g. going down 4 to 1 so that you can win with your last mon), it’s hard to have heuristics of whether a game was totally or just lost — the best way to approach this would be to reward the ML with +1 with a win and a -1 with a loss. We can add more heuristics to speed up training though
 - Input:
-    - State: Knowledge of pokemon/mechanics/team
-    - Possible Actions [singles: 1-4, doubles: 1-4,1-4), switches (singles: 1-5, doubles: 1-2)]
+    - State: All knowable information of the current battle, your pokemon and the opponent's team
+    - Possible Actions:
+        - Singles: 4 actions * dynamax + 5 switches = 13
+        - Doubles: (4 actions * 3 targets * dynamax + 2 switches) * (4 actions * 3 targets * dynamax + 2 switches) = 676 options
+            - In reality, there are only 3 options for dynamax and more limited options for switches (486 total options), but we can stick w/ 676 for simplicity
+                - if two switches: 2
+                - if one switch: 2 * (2 switch + dynamax * 4 moves * 3 targets) = 52
+                - if no switches: 3 * (4 * 3) * (4 * 3) = 432
 - Output:
-    - Best action
+    - Best action (or output of our policy given the battle's state)
         - There is no such thing as a “best action” because a perfectly predictable strategy is exploitable. An understanding of how good each action is ideal
 
 ### Shortcuts to simplify modeling:
@@ -69,6 +75,7 @@ A bot to play VGC. Here are my initial notes from reading
 - In winning positions, they start making decisions according to probabilities: how can you minimize P(loss)?
 
 ### Type of Problem VGC is
+- Markov Property (doesn't matter what the previous slate is given)
 - Stochastic Game (players make moves simultaneously in decision-making scenarios; the joint actions results in a transition to a different game state)
 - Multi-Agent (two player)
 - Zero Sum (aka constant sum)
@@ -78,17 +85,11 @@ A bot to play VGC. Here are my initial notes from reading
 - Reinforcement Learning because:
     - You dont know the probability of getting to the next state (due to opponent decision)
     - You don’t immediately know which states lead you to the reward (+1)
-- Other Options
-    - Monte Carlo Tree Searching?
-        - This would only really be applicable in Singles
-        - This would be really expensive; you could create heuristics to think 2-3 turns ahead
-            - e.g. not attacking your own pokemon unless healing or weakness policy
-        - “Backwards Induction” (implemented as Alpha-Beta pruning) can help prune gamestates
-    - Zero sum games can always be reformulated to Linear Problems (Dantzig, 1951)
-    - Training against itself? (AlphaZero/AlphaGo approach)
-    - “Portfolio Optimization” would be a team builder algorithm, and is unsolved
-    - Minimax Q?
-
+- Second Choice: Monte Carlo Tree Searching?
+    - This would only really be applicable in Singles since in Doubles, this would be really expensive
+    - We could create heuristics to limit your search space (e.g. not attacking your own pokemon unless healing or weakness policy)
+    - “Backwards Induction” (implemented as Alpha-Beta pruning) can help prune gamestates
+    - Intelligent prioritization of branches to search
 
 ### Useful Links:
 1. Twitter Discussion: https://twitter.com/TBFUnreality/status/1059894045177200645
@@ -109,27 +110,20 @@ A bot to play VGC. Here are my initial notes from reading
 11. https://papers.nips.cc/paper/2012/file/3df1d4b96d8976ff5986393e8767f5b2-Paper.pdf
     1. https://github.com/samhippie/shallow-red
 12. Lit review on MARL: https://arxiv.org/pdf/2011.00583.pdf
+    1. Zero sum games can always be reformulated to Linear Problems (Dantzig, 1951)
+    2. Training against itself? (AlphaZero/AlphaGo approach)
+    3. “Portfolio Optimization” would be a team builder algorithm, and is unsolved
+    4. Minimax Q?
 13. Create DeepLearning stuff using poke-env: https://poke-env.readthedocs.io/en/stable/getting_started.html
     1. **This is what I go with**
 14. Implemented Bot: https://github.com/pmariglia/showdown
 15. https://github.com/pkmn/EPOke
 
 ### How I got this up and running
-1. Install Git
-2. create your directory/cd into your directory
-2. Install Node
-  1. curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.0/install.sh | bash # I had to create a .bash_profile first
-  2. export NVM_DIR="$HOME/.nvm"
-  3. [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-  4. [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-  5. command -v nvm # to ensure it is running
-  6. nvm install node -g
-3. python3.8 -m pip install poke-env
-4. git clone https://github.com/hsahovic/Pokemon-Showdown.git
-5. python3.8 -m pip install pip keras-rl2
+1. [Forked Hsahovic's PokeEnv](https://github.com/hsahovic/poke-env/blob/master/src/poke_env/)
+2. [Added more Doubles Support](https://github.com/caymansimpson/poke-env)
+3. Install Node and requirements for PokeEnv (e.g. python3.6, tensorflow, orljson, keras-rl2==1.0.3)
 
 To run an eample where we simulate random battles, from home directory:
 `node Pokemon-Showdown/pokemon-showdown`
-then `python3.8 examples/random_player_random_battle.py`
-
-Example bots: https://github.com/hsahovic/poke-env/tree/master/examples
+then `python3.8 simulators/simulate_random_doubles.py`

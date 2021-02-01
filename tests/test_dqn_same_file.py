@@ -24,9 +24,7 @@ from rl.policy import LinearAnnealedPolicy, MaxBoltzmannQPolicy, EpsGreedyQPolic
 
 from rl.memory import SequentialMemory
 
-from tensorflow.keras.layers import Dense, Flatten, Activation, BatchNormalization, Input
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
+# from tensorflow.python.keras.backend import set_session
 
 # This is the function that will be used to train the dqn
 def dqn_training(player, dqn, nb_steps):
@@ -45,12 +43,15 @@ def dqn_evaluation(player, dqn, nb_episodes):
     )
 
 if __name__ == "__main__":
-    NB_TRAINING_STEPS = 10000
+
+    # TODO: https://github.com/wau/keras-rl2/blob/master/examples/dqn_atari.py#L107; plot rewards and loss
+
+    NB_TRAINING_STEPS = 20000
     NB_EVALUATION_EPISODES = 100
 
     tf.random.set_seed(0)
-
     np.random.seed(0)
+    tf.get_logger().setLevel('ERROR')
 
     env_player = SimpleDQNPlayer(battle_format="gen8vgc2021", team=TeamRepository.teams['garchomp'])
 
@@ -60,15 +61,13 @@ if __name__ == "__main__":
     # Output dimension
     n_action = len(env_player.action_space)
 
-    model = Sequential()
-    model.add(Dense(128, activation="elu", input_shape=(1, 7782)))
-
-    # Our embedding have shape (1, 7782), which affects our hidden layer
-    # dimension and output dimension
-    # Flattening resolve potential issues that would arise otherwise
-    model.add(Flatten())
-    model.add(Dense(64, activation="elu"))
-    model.add(Dense(n_action, activation="linear"))
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.Dense(1024, activation="relu", input_shape=(1, 7782)),
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(512, activation="elu"),
+        tf.keras.layers.Dense(256, activation="elu"),
+        tf.keras.layers.Dense(n_action, activation="linear")
+    ])
 
     model.summary()
 
@@ -84,6 +83,16 @@ if __name__ == "__main__":
         nb_steps=10000,
     )
 
+    # gamma 0.8
+    # reward is everything
+    # random: 76% of battles won
+    # max: 0% of battles won
+
+    # gamma 0.9
+    # reward is just winning
+    # random: 77% of battles won
+    # max: 0% battles won
+
     # Defining our DQN
     dqn = DQNAgent(
         model=model,
@@ -91,25 +100,27 @@ if __name__ == "__main__":
         policy=policy,
         memory=memory,
         nb_steps_warmup=1000,
-        gamma=0.8, # This is the discount factor for the Value we learn - we care a lot about future rewards
-        target_model_update=.01, # This controls how much/when our model updates: https://github.com/keras-rl/keras-rl/issues/55
-        delta_clip=1, # Helps define Huber loss - cips values to be -1 < x < 1. https://srome.github.io/A-Tour-Of-Gotchas-When-Implementing-Deep-Q-Networks-With-Keras-And-OpenAi-Gym/
+        gamma=0.9, # This is the discount factor for the Value we learn - we care a lot about future rewards
+        target_model_update=1, # This controls how much/when our model updates: https://github.com/keras-rl/keras-rl/issues/55; will create "Tensor.op is meaningless when eager execution is enabled.") error if < 1
+        delta_clip=.01, # Helps define Huber loss - cips values to be -1 < x < 1. https://srome.github.io/A-Tour-Of-Gotchas-When-Implementing-Deep-Q-Networks-With-Keras-And-OpenAi-Gym/
         enable_double_dqn=True,
     )
 
-    dqn.compile(Adam(lr=0.01), metrics=["mae"])
+    dqn.compile(tf.keras.optimizers.Adam(lr=0.00025), metrics=["mae"])
 
     # Training
-    env_player.play_against(
-        env_algorithm=dqn_training,
-        opponent=opponent,
-        env_algorithm_kwargs={"dqn": dqn, "nb_steps": NB_TRAINING_STEPS},
-    )
     env_player.play_against(
         env_algorithm=dqn_training,
         opponent=second_opponent,
         env_algorithm_kwargs={"dqn": dqn, "nb_steps": NB_TRAINING_STEPS},
     )
+
+    env_player.play_against(
+        env_algorithm=dqn_training,
+        opponent=opponent,
+        env_algorithm_kwargs={"dqn": dqn, "nb_steps": NB_TRAINING_STEPS},
+    )
+
     model.save("models/model_%d" % NB_TRAINING_STEPS)
 
     # Evaluation

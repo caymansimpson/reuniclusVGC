@@ -46,6 +46,8 @@ class MaxDamagePlayer(Player):
 
                             damage += base_power*stab*effectiveness*(-1 if target < 0 else 1)
 
+                            if order.dynamax: damage += 1
+
                     # Calculate whether we're going to switch into an good environment (wrt types)
                     elif order.is_switch():
                         switch_multiplier += np.mean([compute_type_advantage(order.actor, opp) for opp in filter(lambda x: x is not None, battle.opponent_active_pokemon)])
