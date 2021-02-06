@@ -117,11 +117,22 @@ def compute_worst_case_scenario_speed(battle, mon):
     return speed
 
 def battle_debug(battle):
+    print()
+    print("=============== Battle Debug =================")
     print("My mons: ", battle.active_pokemon)
+    print("Can Dynamax: ", battle.can_dynamax)
+    print("Force Switch: ", battle.force_switch)
+
+    for i, mon in enumerate(battle.active_pokemon):
+        print(f"{i}th mon's moves:", ', '.join(map(lambda x: x.id, battle.available_moves[i])))
+
+    for i, mon in enumerate(battle.active_pokemon):
+        print(f"{i}th mon's available switches:", ', '.join(map(lambda x: x.species, battle.available_switches[i])))
+
     print("Opp mons:", battle.opponent_active_pokemon)
 
     print("Side Conditions:", battle.side_conditions)
     print("Fields:         ", battle.fields)
     print("Weather:        ", battle.weather)
-
+    print("=================== End =====================")
     print()

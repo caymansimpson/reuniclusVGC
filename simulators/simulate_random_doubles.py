@@ -14,6 +14,7 @@ from tabulate import tabulate
 from bots.random_doubles_player import RandomDoublesPlayer
 from bots.smarter_random_player import SmarterRandomPlayer
 from bots.max_damage_player import MaxDamagePlayer
+from bots.io_player import IOPlayer
 from helpers.team_repo import TeamRepository
 
 # To run from command line, run this in the root directory: python3.8 simulators/simulate_random_doubles.py
@@ -25,7 +26,7 @@ async def main():
       # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['mamoswine']),
       # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['spectrier']),
     #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['edgecase']),
-      # SmarterRandomPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['doubleturn']),
+      SmarterRandomPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['regirock']),
     #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['switch']),
     #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['edgecase']),
     #   MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['pledge']),
@@ -34,8 +35,8 @@ async def main():
       # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['swampert']),
       # RandomDoublesPlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['garchomp']),
       #MaxDamagePlayer(max_concurrent_battles=10, battle_format='gen8vgc2021', team=TeamRepository.teams['garchomp']),
-      SmarterRandomPlayer(max_concurrent_battles=1, battle_format="gen8vgc2021", team=TeamRepository.teams['swampert']),
-      RandomDoublesPlayer(max_concurrent_battles=1, battle_format="gen8vgc2021", team=TeamRepository.teams['garchomp']),
+      SmarterRandomPlayer(max_concurrent_battles=1, battle_format="gen8vgc2021", team=TeamRepository.teams['spectrier']),
+      # IOPlayer(max_concurrent_battles=1, battle_format="gen8vgc2021", team=TeamRepository.teams['switch']),
     ]
 
     # Each player plays n times against eac other

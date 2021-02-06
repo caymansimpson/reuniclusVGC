@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from datetime import datetime
 import sys
+import random
 from typing import Dict, List, Optional
 
 sys.path.append(".") # will make "utils" callable from root
@@ -38,8 +39,6 @@ class SimpleDQNPlayer(EnvPlayer):
 
     def __init__(self, num_battles=10000, **kwargs):
         super().__init__(**kwargs)
-
-        self._random_player = RandomDoublesPlayer()
 
         # # We need to define how much we're going to train
         # self._num_battles = num_battles
@@ -109,7 +108,7 @@ class SimpleDQNPlayer(EnvPlayer):
     def _action_to_single_move(self, action: int, index: int, battle):
         if action < 24:
             # If either there is no mon or we're forced to switch, there's nothing to do
-            if not battle.active_pokemon[index] or battle.force_switch[index]: return DefaultBattleOrder()
+            if not battle.active_pokemon[index] or battle.force_switch[index]: return None
             dynamax, remaining = action % 2 == 1, int(action / 2)
             if battle.active_pokemon[index] and int(remaining/3) < len(battle.active_pokemon[index].moves):
                 move, initial_target = list(battle.active_pokemon[index].moves.values())[int(remaining/3)], remaining % 3
@@ -136,7 +135,7 @@ class SimpleDQNPlayer(EnvPlayer):
         elif 25 - action < len(battle.available_switches[index]):
             return BattleOrder(order=battle.available_switches[index][25-action], actor=battle.active_pokemon[index])
 
-        return DefaultBattleOrder()
+        return None
 
     # Takes the output of our policy (which chooses from a 676-dimensional array), and converts it into a battle order
     def _action_to_move(self, action: int, battle: Battle) -> str: # pyre-ignore
@@ -154,10 +153,12 @@ class SimpleDQNPlayer(EnvPlayer):
         """
         row, col = action % 26, int(action / 26)
         first_order = self._action_to_single_move(row, 0, battle) if battle.active_pokemon[0] else None
-        second_order = self._action_to_single_move(row, 1, battle) if battle.active_pokemon[1] else None
+        second_order = self._action_to_single_move(col, 1, battle) if battle.active_pokemon[1] else None
+
         double_order = DoubleBattleOrder(first_order=first_order, second_order=second_order)
-        if DoubleBattleOrder.is_valid(battle, double_order): return double_order
-        else: return self._random_player.choose_move(battle)
+        if DoubleBattleOrder.is_valid(battle, double_order):
+            return double_order
+        else: return DefaultDoubleBattleOrder()
 
     @property
     def action_space(self) -> List:
@@ -235,6 +236,7 @@ class SimpleDQNPlayer(EnvPlayer):
             int(move.use_target_offensive),
         ])
 
+        # TODO: construct knowledge of how the game works and create sets of movecategories and side conditions and stuff for faster checking
         # Add Category
         embeddings.append([1 if move.category == category else 0 for category in MoveCategory._member_map_.values()])
 
@@ -281,7 +283,7 @@ class SimpleDQNPlayer(EnvPlayer):
                 for stat in x.get('boosts', {}): boost_embeddings[stat] += x['boosts'][stat]
         embeddings.append(boost_embeddings.values())
 
-        # Add Self-Boosts; meteormash, scaleshot, dragondance
+        # Add Self-Boosts
         self_boost_embeddings = {'atk': 0, 'def': 0, 'spa': 0, 'spd': 0, 'spe': 0, 'evasion': 0, 'accuracy': 0}
         if move.self_boost:
             for stat in move.self_boost: self_boost_embeddings[stat] += move.self_boost[stat]
@@ -317,7 +319,7 @@ class SimpleDQNPlayer(EnvPlayer):
             mon.level,
             mon.weight,
             int(mon.must_recharge),
-            int(mon.preparing),
+            1 if mon.preparing else 0,
             int(mon.is_dynamaxed),
         ])
 
@@ -372,10 +374,10 @@ class SimpleDQNPlayer(EnvPlayer):
         embeddings.append(mon.base_stats.values())
         embeddings.append(mon.boosts.values())
 
-        # Add status (one-hot encoded)
+        # Add status (one-hot encoded); TODO: replace with set
         embeddings.append([1 if mon.status == status else 0 for status in Status._member_map_.values()])
 
-        # Add Types (one-hot encoded)
+        # Add Types (one-hot encoded); TODO: replace with set
         embeddings.append([1 if mon.type_1 == pokemon_type else 0 for pokemon_type in PokemonType._member_map_.values()])
         embeddings.append([1 if mon.type_2 == pokemon_type else 0 for pokemon_type in PokemonType._member_map_.values()])
 
@@ -393,7 +395,6 @@ class SimpleDQNPlayer(EnvPlayer):
     # Embeds the state of the battle in a 7782-dimensional embedding
     # Embed mons (and whether theyre active)
     # Embed opponent mons (and whether theyre active, theyve been brought or we don't know)
-    #
     # Then embed all the Fields, Side Conditions, Weathers, Player Ratings, # of Turns and the bias
     def embed_battle(self, battle):
         embeddings = []
@@ -402,14 +403,13 @@ class SimpleDQNPlayer(EnvPlayer):
         for mon in battle.sent_team.values():
             embeddings.append(self._embed_mon(battle, mon))
 
-        # Cayman added the property `teampreview_opponent_team` to double_battle
         for mon in battle.teampreview_opponent_team.values():
             embeddings.append(self._embed_opp_mon(battle, mon))
 
         # Add Dynamax stuff
         embeddings.append(battle.can_dynamax + battle.opponent_can_dynamax + [battle.dynamax_turns_left, battle.opponent_dynamax_turns_left])
 
-        # Add Fields
+        # Add Fields; TODO replace with set
         embeddings.append([1 if field in battle.fields else 0 for field in Field._member_map_.values()])
 
         # Add Side Conditions
@@ -421,7 +421,10 @@ class SimpleDQNPlayer(EnvPlayer):
         # Add Player Ratings, the battle's turn and a bias term
         embeddings.append(list(map(lambda x: x if x else -1, [battle.rating, battle.opponent_rating, battle.turn, 1])))
 
-        # Flatten all the lists into a 7732, list
+        # Add Bias term
+        embeddings.append([1])
+
+        # Flatten all the lists into a 7783-dim list
         return np.array([item for sublist in embeddings for item in sublist])
 
     # Define the incremental reward for the current battle state over the last one
@@ -431,13 +434,15 @@ class SimpleDQNPlayer(EnvPlayer):
         State values are computed by weighting different factor. Fainted pokemons, their remaining HP, inflicted
         statuses and winning are taken into account. These are how we define the reward of the state
 
-        Won 1000
-        Fainted pokemon (100 each; 400 max)
-        Speed of mons (+25 for every mon faster, -25 for every mon slower; 100 max)
-        Current Type advantage (+25 for every type advantage, average of off/def; 100 max)
-        HP Difference (adding %'s; 100 max)
-        Condition (10 each; 40 max)
-        Should figure this out for later: Information
+        Won 50000 (should really be the only thing we optimize for, since there are concepts like reverse-sweeping)
+
+        These are other things that we could reward:
+        - Fainted pokemon (100 each; 400 max)
+        - Speed of mons (+25 for every mon faster, -25 for every mon slower; 100 max)
+        - Current Type advantage (+25 for every type advantage, average of off/def; 100 max)
+        - HP Difference (adding %'s; 100 max)
+        - Condition (10 each; 40 max)
+        - Information
 
         :param battle: The battle for which to compute rewards.
         :type battle: Battle
@@ -446,52 +451,12 @@ class SimpleDQNPlayer(EnvPlayer):
         """
 
         current_value = 0
-        victory_value, fainted_value, hp_value, status_value, speed_value, type_value, starting_value = 5000, 100, 25, 25, 10, 100, 0
+        victory_value, starting_value = 1, 0
 
         # Initialize our reward buffer if this is the first turn in a battle. Since we incorporate speed and type advantage,
         # our turn 0 reward will be non-0
         if battle not in self._reward_buffer:
             self._reward_buffer[battle] = starting_value
-
-
-        # Incorporate rewards for our team
-        for mon in battle.team.values():
-            current_value += mon.current_hp_fraction * hp_value # We value HP at 25 points for 100% of a mon's
-            if mon.fainted: current_value -= fainted_value # We value fainted mons at 100 points
-            if not mon.fainted and mon.status is not None: current_value -= status_value # we value status conditions at 10
-
-
-        # Incorporate rewards for other team (to keep symmetry)
-        for mon in battle._teampreview_opponent_team:
-            current_value -= mon.current_hp_fraction * hp_value
-            if mon.fainted: current_value += fainted_value
-            if not mon.fainted and mon.status is not None: current_value += status_value
-
-        """
-        # Add pokemon boost, account for paralysis, battle.side_conditions & battle.opponent_side_conditions
-        for mon in battle.active_pokemon:
-            if mon:
-                mon_spe = compute_effective_speed(battle, mon)
-                for opp_mon in battle.opponent_active_pokemon:
-                    opp_spe = compute_worst_case_scenario_speed(battle, mon)
-                    if mon_spe == opp_spe: current_value += 0
-                    elif mon_spe > opp_spe or (mon_spe < opp_spe and Field.TRICK_ROOM in battle.fields): current_value += speed_value # Trick Room is the 10th enum
-                    else: current_value -= speed_value
-
-
-        # Count type advantages of pokmemon by summing up all advantages of active pokemon, and then assign reward based on
-        # how much the type advantage is in one direction or the other (since type advantage aren't symmetrical), normalized
-        # by how much the reward could be (1.5 per mon), given the active pokemon
-        total = 0
-        for mon in battle.active_pokemon:
-            for opp_mon in battle.opponent_active_pokemon:
-                if mon and opp_mon:
-                    total = compute_type_advantage(mon, opp_mon) - compute_type_advantage(opp_mon, mon)
-
-        normalized_type_advantage = total / (1.5 * len(battle.active_pokemon)*len(battle.opponent_active_pokemon)) # Normalize
-        normalized_type_advantage = max(min(normalized_type_advantage, 1), -1) # Squish to between -1 and 1
-        current_value += normalized_type_advantage * type_value
-        """
 
         # Victory condition
         if battle.won: current_value += victory_value
@@ -529,8 +494,8 @@ class SimpleDQNPlayer(EnvPlayer):
       self.reset_battles()
       self.dqn.test(nb_episodes=num_battles, visualize=False, verbose=False)
       print("DQN Evaluation: %d wins out of %d battles" % (player.n_won_battles, num_battles))
+      return self.n_won_battles*1./num_battles
 
-    # Taken from env_player example (https://github.com/hsahovic/poke-env/blob/f16d70e8b80e2c880170730d9b6ef9c61c2b6bf2/src/poke_env/player/env_player.py#L236-L263)
     def choose_move(self, battle: Battle) -> str:
         if battle not in self._observations or battle not in self._actions: self._init_battle(battle)
         self._observations[battle].put(self.embed_battle(battle))
@@ -540,7 +505,7 @@ class SimpleDQNPlayer(EnvPlayer):
         return order
 
     # Same as max damage for now - we return the mons who have the best average type advantages against the other team
-    # TODO: implement with AI
+    # TODO: implement using Q-values and minimax to send out position that maximizes our worst position
     def teampreview(self, battle):
 
         # We have a dict that has index in battle.team -> average type advantage
@@ -557,4 +522,5 @@ class SimpleDQNPlayer(EnvPlayer):
 
         # We start with the one we consider best overall
         # We use i + 1 as python indexes start from 0 but showdown's indexes start from 1, and return the first 4 mons, in term of importance
-        return "/team " + "".join([str(i + 1) for i in ordered_mons])
+        # return "/team " + "".join([str(i + 1) for i in ordered_mons])
+        return "/team " + "".join(random.sample(list(map(lambda x: str(x+1), range(0, len(battle.team)))), k=4))

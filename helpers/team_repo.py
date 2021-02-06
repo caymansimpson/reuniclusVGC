@@ -584,5 +584,41 @@ Jolly Nature
 IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
 - Water Pledge
 
+""","sample":"""
+Incineroar
+Ability: Blaze
+Level: 50
+EVs: 44 HP
+- Acrobatics
+- Blaze Kick
+- Body Slam
+- Brick Break
+
+Rillaboom
+Ability: Overgrow
+Level: 50
+EVs: 20 HP
+- Acrobatics
+- Body Press
+- Body Slam
+- Brick Break
+
+Primarina
+Ability: Torrent
+Level: 50
+EVs: 20 HP
+- Acrobatics
+- Aqua Jet
+- Energy Ball
+- Facade
+
+Swampert
+Ability: Torrent
+Level: 50
+EVs: 36 HP
+- Ancient Power
+- Body Press
+- Body Slam
+- Brick Break
 """
   }

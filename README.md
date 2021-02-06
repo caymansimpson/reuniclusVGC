@@ -27,10 +27,17 @@ Bots to play VGC. Here are my initial notes from readings:
     - Possible Actions:
         - Singles: 4 actions * dynamax + 5 switches = 13
         - Doubles: (4 actions * 3 targets * dynamax + 2 switches) * (4 actions * 3 targets * dynamax + 2 switches) = 676 options
-            - In reality, there are only 3 options for dynamax and more limited options for switches (486 total options), but we can stick w/ 676 for simplicity
+            - In reality, there are more limited options (418 total, detailed below), but we can stick w/ 676 for simplicity
                 - if two switches: 2
-                - if one switch: 2 * (2 switch + dynamax * 4 moves * 3 targets) = 52
-                - if no switches: 3 * (4 * 3) * (4 * 3) = 432
+                - if one switch: 2 (cuz either mon could switch) *
+                    - switch mon: 2 possible switches
+                    - if non-switch dynamaxes: 4 moves * 2 targets
+                    - if non-switch doesn't dynamax: 4 moves * 3 targets
+                    - = 80
+                - if no mon switches:
+                    - if one dynamaxes: 2 possible dynamaxes * (4 moves * 2 targets) * (4 moves * 3 targets)
+                    - if none dynamaxes: (4 moves * 3 targets)*(4 moves * 3 targets)
+                    - = 336
 - Output:
     - Best action (or output of our policy given the battle's state)
         - There is no such thing as a “best action” because a perfectly predictable strategy is exploitable. An understanding of how good each action is ideal
