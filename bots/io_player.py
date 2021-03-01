@@ -12,17 +12,12 @@ from poke_env.player.battle_order import DoubleBattleOrder, DefaultDoubleBattleO
 
 from helpers.doubles_utils import *
 
-class CustomDoubleBattleOrder(DoubleBattleOrder):
-  message = None
-
 class IOPlayer(Player):
 
     def choose_move(self, battle):
-        order = CustomDoubleBattleOrder()
         mon1 = battle.active_pokemon[0].species if battle.active_pokemon[0] else "None"
         mon2 = battle.active_pokemon[1].species if battle.active_pokemon[1] else "None"
 
-        # TODO: print possible moves and switches
         print()
         print(f"Pokemon are: {mon1} and {mon2}")
 
@@ -34,7 +29,7 @@ class IOPlayer(Player):
         else: print("Second mon's moves: None")
         print("Second mon's switches: " + str(battle.available_switches[1]))
 
-        order.message = input("What order do you want to give?")
+        order =  input("What order do you want to give?")
         return order
 
     # Just select the first 4 mons

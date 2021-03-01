@@ -33,10 +33,10 @@ class SmarterRandomPlayer(Player):
             if len(filtered_orders) > 0: order = random.choice(filtered_orders)
             else: order = DefaultDoubleBattleOrder()
 
-            return order
+            return order.message
 
         # Force Switch situation
-        else: return random.choice(orders)
+        else: return random.choice(orders).message
 
     # Filters all orders to reasonable moves
     def _filter_to_reasonable_moves(self, battle: List[DoubleBattle], orders: List[DoubleBattleOrder]):

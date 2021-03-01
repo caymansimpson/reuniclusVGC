@@ -18,7 +18,7 @@ class RandomDoublesPlayer(Player):
         filtered_orders = list(filter(lambda x: DoubleBattleOrder.is_valid(battle, x), orders))
         if filtered_orders: order = random.choice(filtered_orders)
         else: order = DefaultDoubleBattleOrder()
-        return order
+        return order.message
 
     def teampreview(self, battle):
 

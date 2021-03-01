@@ -37,6 +37,9 @@ class MaxDamagePlayer(Player):
 
                     # If damaging move, Gg through each potential target and add up damage (subtract if self-damage)
                     if order.is_move() and (order.order.damage or order.order.base_power > 0):
+                        if BattleOrder.get_affected_targets(battle, order) == None:
+                            print(order)
+
                         for target in BattleOrder.get_affected_targets(battle, order):
                             stab = 1.5 if order.order.type in order.actor.types else 1
                             target_mon = battle.showdown_target_to_mon(target)
@@ -75,7 +78,7 @@ class MaxDamagePlayer(Player):
 
                 if np.mean(multipliers) > multiplier: best_order, multiplier = double_order, np.mean(multipliers)
 
-        return best_order
+        return best_order.message
 
     # Choose mons who have the best average performance of the other team
     def teampreview(self, battle):

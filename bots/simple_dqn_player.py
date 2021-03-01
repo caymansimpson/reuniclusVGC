@@ -32,16 +32,12 @@ from rl.memory import SequentialMemory
 from tensorflow.keras.layers import Dense, Flatten, Activation, BatchNormalization, Input
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
-from tensorflow.python.keras.backend import set_session
 
 # We define our RL player
 class SimpleDQNPlayer(EnvPlayer):
 
     def __init__(self, num_battles=10000, **kwargs):
         super().__init__(**kwargs)
-
-        # # We need to define how much we're going to train
-        # self._num_battles = num_battles
 
         # # Redefine the buffer defined in env_player; this will be turn (int) => reward and will be reset every battle
         # # So that we can compute te difference between this reward and the last state
@@ -57,6 +53,24 @@ class SimpleDQNPlayer(EnvPlayer):
         action_space = list(range((4 * 3  * 2 + 2)*(4 * 3 * 2 + 2)))
         self._ACTION_SPACE = action_space
 
+        # Preprocess all the sets that we'll use to embed battle states.
+        # The tuples are key where we retrieve the classes, the class, and whether poke_env supports returning the class (as opposed to string)
+        self._knowledge = {}
+        sets = [
+            ('Field', Field, False),
+            ('SideCondition', SideCondition, False),
+            ('Status', Status, True),
+            ('Weather', Weather, True),
+            ('PokemonType', PokemonType, True),
+            ('MoveCategory', MoveCategory, True),
+            ('TargetType', TargetType, False),
+            ('VolatileStatus', VolatileStatus, False),
+        ]
+
+        for key, klass, supported in sets:
+            if supported: self._knowledge[key] =  list(klass._member_map_.values())
+            else: self._knowledge[key] = list(map(lambda x: x.name.lower().replace("_", ""), list(klass._member_map_.values())))
+
         # # Simple model where only one layer feeds into the next
         # self._model = Sequential()
 
@@ -64,7 +78,7 @@ class SimpleDQNPlayer(EnvPlayer):
         # init = tf.keras.initializers.RandomNormal(mean=.1, stddev=.02)
 
         # # Input Layer; this shape is one that just works
-        # self._model.add(Dense(512, input_shape=(1, 7782), activation="relu", use_bias=False, kernel_initializer=init, name='first_hidden'))
+        # self._model.add(Dense(512, input_shape=(1, 7814), activation="relu", use_bias=False, kernel_initializer=init, name='first_hidden'))
 
         # # Hidden Layers
         # self._model.add(Flatten(name='flatten')) # Flattening resolve potential issues that would arise otherwise
@@ -206,7 +220,7 @@ class SimpleDQNPlayer(EnvPlayer):
     def _embed_move(self, move):
 
         # If the move is None or empty, return a negative array (filled w/ -1's)
-        if move is None or move.is_empty: return [-1]*176
+        if move is None or move.is_empty: return [-1]*177
 
         embeddings = []
 
@@ -236,41 +250,40 @@ class SimpleDQNPlayer(EnvPlayer):
             int(move.use_target_offensive),
         ])
 
-        # TODO: construct knowledge of how the game works and create sets of movecategories and side conditions and stuff for faster checking
         # Add Category
-        embeddings.append([1 if move.category == category else 0 for category in MoveCategory._member_map_.values()])
+        embeddings.append([1 if move.category == category else 0 for category in self._knowledge['MoveCategory']])
 
         # Add Defensive Category
-        embeddings.append([1 if move.defensive_category == category else 0 for category in MoveCategory._member_map_.values()])
+        embeddings.append([1 if move.defensive_category == category else 0 for category in self._knowledge['MoveCategory']])
 
         # Add Move Type
-        embeddings.append([1 if move.type == pokemon_type else 0 for pokemon_type in PokemonType._member_map_.values()])
+        embeddings.append([1 if move.type == pokemon_type else 0 for pokemon_type in self._knowledge['PokemonType']])
 
         # Add Fields (bad coding -- assumes field name will be move name, and uses string manipulation)
-        embeddings.append([1 if field.name.lower().replace("_", "") == move.id else 0 for field in Field._member_map_.values()])
+        embeddings.append([1 if move.id == field else 0 for field in self._knowledge['Field']])
 
-        # Add Side Conditions (bad coding -- assumes field name will be move name, and uses string manipulation)
-        embeddings.append([1 if sc.name.lower().replace("_", "") == move.id else 0 for sc in SideCondition._member_map_.values()])
+        # Add Side Conditions (bad coding -- assumes side condition name will be move name, and uses string manipulation)
+        embeddings.append([1 if move.side_condition == sc else 0 for sc in self._knowledge['SideCondition']])
 
         # Add Weathers (bad coding -- assumes field name will be move name, and uses string manipulation)
-        embeddings.append([1 if weather.name.lower().replace("_", "") == move.id else 0 for weather in Weather._member_map_.values()])
+        embeddings.append([1 if move.weather == weather else 0 for weather in self._knowledge['Weather']])
 
-        # Add Targeting Types (from double_utils.py); cardinality is 14
-        embeddings.append([1 if tt.name.lower().replace("_", "") == move.deduced_target else 0 for tt in TargetType._member_map_.values()])
+        # Add Targeting Types; cardinality is 14
+        embeddings.append([1 if move.deduced_target and move.deduced_target.lower() == tt else 0 for tt in self._knowledge['TargetType']])
 
-        # Add Volatility Statuses (from double_utils.py); cardinality is 57
+        # Add Volatility Statuses; cardinality is 57
         volatility_status_embeddings = []
-        for vs in VolatileStatus._member_map_.values():
-            if vs.name.lower().replace("_", "") == move.volatile_status: volatility_status_embeddings.append(1)
-            elif vs.name.lower().replace("_", "") in list(map(lambda x: x.get('volatilityStatus', ''), move.secondary)): volatility_status_embeddings.append(1)
+        for vs in self._knowledge['VolatileStatus']:
+            if vs == move.volatile_status: volatility_status_embeddings.append(1)
+            elif move.secondary and vs in list(map(lambda x: x.get('volatilityStatus', '').lower(), move.secondary)): volatility_status_embeddings.append(1)
             else: volatility_status_embeddings.append(0)
         embeddings.append(volatility_status_embeddings)
 
         # Add Statuses
         status_embeddings = []
-        for status in Status._member_map_.values():
-            if status.name.lower().replace("_", "") == move.status: status_embeddings.append(1)
-            elif status.name.lower().replace("_", "") in list(map(lambda x: x.get('status', ''), move.secondary)): status_embeddings.append(1)
+        for status in self._knowledge['Status']:
+            if status == move.status: status_embeddings.append(1)
+            elif move.secondary and status in list(map(lambda x: x.get('status', ''), move.secondary)): status_embeddings.append(1)
             else: status_embeddings.append(0)
         embeddings.append(status_embeddings)
 
@@ -328,11 +341,11 @@ class SimpleDQNPlayer(EnvPlayer):
         embeddings.append(mon.boosts.values())
 
         # Add status (one-hot encoded)
-        embeddings.append([1 if mon.status == status else 0 for status in Status._member_map_.values()])
+        embeddings.append([1 if mon.status == status else 0 for status in self._knowledge['Status']])
 
         # Add Types (one-hot encoded)
-        embeddings.append([1 if mon.type_1 == pokemon_type else 0 for pokemon_type in PokemonType._member_map_.values()])
-        embeddings.append([1 if mon.type_2 == pokemon_type else 0 for pokemon_type in PokemonType._member_map_.values()])
+        embeddings.append([1 if mon.type_1 == pokemon_type else 0 for pokemon_type in self._knowledge['PokemonType']])
+        embeddings.append([1 if mon.type_2 == pokemon_type else 0 for pokemon_type in self._knowledge['PokemonType']])
 
         # Add whether the mon is trapped or forced to switch. But first, find the index
         index = None
@@ -366,7 +379,7 @@ class SimpleDQNPlayer(EnvPlayer):
             mon.level,
             mon.weight,
             int(mon.must_recharge),
-            int(mon.preparing),
+            1 if mon.preparing else 0,
             int(mon.is_dynamaxed),
         ])
 
@@ -374,12 +387,12 @@ class SimpleDQNPlayer(EnvPlayer):
         embeddings.append(mon.base_stats.values())
         embeddings.append(mon.boosts.values())
 
-        # Add status (one-hot encoded); TODO: replace with set
-        embeddings.append([1 if mon.status == status else 0 for status in Status._member_map_.values()])
+        # Add status (one-hot encoded)
+        embeddings.append([1 if mon.status == status else 0 for status in self._knowledge['Status']])
 
-        # Add Types (one-hot encoded); TODO: replace with set
-        embeddings.append([1 if mon.type_1 == pokemon_type else 0 for pokemon_type in PokemonType._member_map_.values()])
-        embeddings.append([1 if mon.type_2 == pokemon_type else 0 for pokemon_type in PokemonType._member_map_.values()])
+        # Add Types (one-hot encoded)
+        embeddings.append([1 if mon.type_1 == pokemon_type else 0 for pokemon_type in self._knowledge['PokemonType']])
+        embeddings.append([1 if mon.type_2 == pokemon_type else 0 for pokemon_type in self._knowledge['PokemonType']])
 
         # Add whether the mon is trapped or forced to switch. But first, find the index
         index = None
@@ -392,7 +405,7 @@ class SimpleDQNPlayer(EnvPlayer):
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
 
-    # Embeds the state of the battle in a 7782-dimensional embedding
+    # Embeds the state of the battle in a 7814-dimensional embedding
     # Embed mons (and whether theyre active)
     # Embed opponent mons (and whether theyre active, theyve been brought or we don't know)
     # Then embed all the Fields, Side Conditions, Weathers, Player Ratings, # of Turns and the bias
@@ -403,28 +416,40 @@ class SimpleDQNPlayer(EnvPlayer):
         for mon in battle.sent_team.values():
             embeddings.append(self._embed_mon(battle, mon))
 
-        for mon in battle.teampreview_opponent_team.values():
+        # Embed opponent's mons. teampreview_opponent_team has empty move slots while opponent_team has moves we remember.
+        # We first embed opponent_active_pokemon, then ones we remember from the team, then the rest
+        embedded_opp_mons = set()
+        for mon in battle.opponent_active_pokemon:
+            if mon:
+                embeddings.append(self._embed_opp_mon(battle, mon))
+                embedded_opp_mons.add(mon.species)
+
+        for mon in battle.opponent_team.values():
+            if mon.species in embedded_opp_mons: continue
             embeddings.append(self._embed_opp_mon(battle, mon))
+            embedded_opp_mons.add(mon.species)
+
+        for mon in battle.teampreview_opponent_team:
+            if mon in embedded_opp_mons: continue
+            embeddings.append(self._embed_opp_mon(battle, battle.teampreview_opponent_team[mon]))
+            embedded_opp_mons.add(mon)
 
         # Add Dynamax stuff
         embeddings.append(battle.can_dynamax + battle.opponent_can_dynamax + [battle.dynamax_turns_left, battle.opponent_dynamax_turns_left])
 
-        # Add Fields; TODO replace with set
-        embeddings.append([1 if field in battle.fields else 0 for field in Field._member_map_.values()])
+        # Add Fields;
+        embeddings.append([1 if field in battle.fields else 0 for field in self._knowledge['Field']])
 
         # Add Side Conditions
-        embeddings.append([1 if sc in battle.side_conditions else 0 for sc in SideCondition._member_map_.values()])
+        embeddings.append([1 if sc in battle.side_conditions else 0 for sc in self._knowledge['SideCondition']])
 
         # Add Weathers
-        embeddings.append([1 if weather == battle.weather else 0 for weather in Weather._member_map_.values()])
+        embeddings.append([1 if weather == battle.weather else 0 for weather in self._knowledge['Weather']])
 
         # Add Player Ratings, the battle's turn and a bias term
         embeddings.append(list(map(lambda x: x if x else -1, [battle.rating, battle.opponent_rating, battle.turn, 1])))
 
-        # Add Bias term
-        embeddings.append([1])
-
-        # Flatten all the lists into a 7783-dim list
+        # Flatten all the lists into a 7814-dim list
         return np.array([item for sublist in embeddings for item in sublist])
 
     # Define the incremental reward for the current battle state over the last one
@@ -451,12 +476,22 @@ class SimpleDQNPlayer(EnvPlayer):
         """
 
         current_value = 0
-        victory_value, starting_value = 1, 0
+        victory_value, starting_value, fainted_value, hp_value = 70, 0, 3.25, 3.25
 
         # Initialize our reward buffer if this is the first turn in a battle. Since we incorporate speed and type advantage,
         # our turn 0 reward will be non-0
         if battle not in self._reward_buffer:
             self._reward_buffer[battle] = starting_value
+
+        # Incorporate rewards for our team
+        for mon in battle.team.values():
+            current_value += mon.current_hp_fraction * hp_value # We value HP at 25 points for 100% of a mon's
+            if mon.fainted: current_value -= fainted_value # We value fainted mons at 100 points
+
+        # Incorporate rewards for other team (to keep symmetry)
+        for mon in battle._teampreview_opponent_team:
+            current_value -= mon.current_hp_fraction * hp_value
+            if mon.fainted: current_value += fainted_value
 
         # Victory condition
         if battle.won: current_value += victory_value
@@ -473,27 +508,24 @@ class SimpleDQNPlayer(EnvPlayer):
         self._dqn.fit(self, nb_steps=num_steps)
         self.complete_current_battle()
 
-    def train(self, opponent, num_steps) -> None:
+    def train(self, opponent: Player, num_steps: int) -> None:
         self.play_against(
             env_algorithm=self._training_helper,
             opponent=opponent,
             env_algorithm_kwargs={"num_steps": num_steps},
         )
 
-    # TODO: implement
-    def save_model(self, filename=None):
-      if filename is not None: self.model.save("models/" + filename)
-      else: self._model.save("models/model_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S"))
+    def save_model(self, filename=None) -> None:
+        if filename is not None: self._dqn.save_weights("models/" + filename, overwrite=True)
+        else: self._dqn.save_weights("models/model_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S"), overwrite=True)
 
-    # TODO: implement (pretty sure tf.load doesn't work)
-    def load_model(self, filename):
-      self._model = tf.load("models/" + filename)
+    def load_model(self, filename: str) -> None:
+        self._dqn.load_weights("models/" + filename)
 
-    # TODO implement (I think self.model.test needs to be implemented)
-    def evaluate_model(self, num_battles):
+    def evaluate_model(self, num_battles: int, v=True) -> float:
       self.reset_battles()
-      self.dqn.test(nb_episodes=num_battles, visualize=False, verbose=False)
-      print("DQN Evaluation: %d wins out of %d battles" % (player.n_won_battles, num_battles))
+      self._dqn.test(nb_episodes=num_battles, visualize=False, verbose=False)
+      if v: print("DQN Evaluation: %d wins out of %d battles" % (player.n_won_battles, num_battles))
       return self.n_won_battles*1./num_battles
 
     def choose_move(self, battle: Battle) -> str:
