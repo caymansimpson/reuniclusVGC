@@ -64,6 +64,7 @@ function alphabeta(battle, depth, alpha, beta, maximizingPlayer) is
 alphabeta(battle, 6, -np.inf, np.inf, TRUE)
 """
 
+# TODO: this is a WIP
 class ExpectimaxPlayer(Player):
 
     def choose_move(self, battle):
