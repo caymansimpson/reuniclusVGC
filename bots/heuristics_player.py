@@ -22,6 +22,8 @@ from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder, 
 from helpers.doubles_utils import *
 
 """ ============== Creating a player that moves based on Heuristics ==============
+This is not a finished bot
+
 Possible options:
 - Optimize for my mons move first
 - Optimize for the least damage taken (e.g. if another mon moves first, assume worst case scenario)

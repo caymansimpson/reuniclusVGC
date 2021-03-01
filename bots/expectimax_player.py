@@ -5,6 +5,9 @@ from queue import PriorityQueue
 import numpy as np
 
 """
+============== Creating a player that moves based on Expectimax ==============
+This is not a finished bot
+
 To modify this algo for Pokemon and efficiency, when prioritizing which trees to go down, we should prioritize:
 - always saving best case scenario found so far
 - never go past three turns
@@ -63,8 +66,6 @@ function alphabeta(battle, depth, alpha, beta, maximizingPlayer) is
 
 alphabeta(battle, 6, -np.inf, np.inf, TRUE)
 """
-
-# TODO: this is a WIP
 class ExpectimaxPlayer(Player):
 
     def choose_move(self, battle):
