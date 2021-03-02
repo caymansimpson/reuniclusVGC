@@ -18,6 +18,10 @@ Bots to play VGC. Here are my initial notes from readings:
     4. EV spreads
     5. IV spreads
     6. Pokemon brought
+5. Why VGC will be more computationally difficult
+    1. Action Space; Singles Action Space is 13 and Doubles Action Space is 418.
+    2. Turn Action Space; Singles is 169 while Doubles is 174,724 (ignoring probabilities which exacerbates this because the probabilities compound)
+    3. More emphasis on teampreview (since there's an extra element of picking 4 out of 6). However, whie this is certainly another type of problem, it will be comparatively trivial to solve.
 
 ### ML basics:
 - We need to learn a “policy”; given the game state, and thus a set of possible actions, ML will choose the most optimal action
@@ -26,7 +30,7 @@ Bots to play VGC. Here are my initial notes from readings:
     - State: All knowable information of the current battle, your pokemon and the opponent's team
     - Possible Actions:
         - Singles: 4 actions * dynamax + 5 switches = 13
-        - Doubles: (4 actions * 3 targets * dynamax + 2 switches) * (4 actions * 3 targets * dynamax + 2 switches) = 676 options
+        - Doubles: (4 actions * 3 targets * dynamax + 2 switches)^2 = 676 options
             - In reality, there are more limited options (418 total, detailed below), but we can stick w/ 676 for simplicity
                 - if two switches: 2
                 - if one switch: 2 (cuz either mon could switch) *
@@ -42,30 +46,8 @@ Bots to play VGC. Here are my initial notes from readings:
     - Best action (or output of our policy given the battle's state)
         - There is no such thing as a “best action” because a perfectly predictable strategy is exploitable. An understanding of how good each action is ideal
 
-### Shortcuts to simplify modeling:
-- We should create three types of opponents:
-    - Random
-    - One turn lookahead
-        - Maximize damage
-        - Maximize difference in HP
-    - Maximize damage
-    - Maximize difference in HP
-- Start with doubles, as it is probably computationally less expensive
-    - Turn-based event space: (ignoring dynamax, which adds 4 more actions per turn for singles, 8 for doubles)
-        - Singles:  4 moves + 5 switches maximum = 9 possible
-        - Doubles:
-            - Pokemon 1: 4 moves for 3 targets + 2 switches: 14
-            - Pokemon 2: 4 moves for 3 targets + 2 switches: 14
-            - Estimated maximum total possible moves per turn: 196 possible
-    - Estimated Turns per game
-        - Singles: 50
-        - Doubles: 15
-    - Estimated Moves to evaluate:
-        - Singles: 9^50 = 5.153775207e47
-        - Doubles: 196^15 = 2.420143236e34
-    - Ignore secondary effects/moves if they are <80% likely
-    - Assume anything that is more than 30% likely to happen is going to happen
-- Ignore the existence of Zoroark and Ditto
+### Shortcuts I will take to simplify modeling:
+- Primarily, ignore the existence of Zoroark and Ditto :)
 
 ### Ways Players Think
 - Pokemon is a game of wincons
@@ -82,16 +64,18 @@ Bots to play VGC. Here are my initial notes from readings:
 - In winning positions, they start making decisions according to probabilities: how can you minimize P(loss)?
 
 ### Type of Problem VGC is
-- Markov Property (doesn't matter what the previous slate is given)
+- Markov Property; previous states don't matter given the current battle state. However, two caveats here:
+    - This is certainly not true in a competitive format where certain players have tendencies (e.g .play more or less aggressively). Whether or not players currently play optimally enough for us to need to maximize rewards based on another player's likelihood to make a move is stil an unknown.
+    - Cardinality of battle states is for all intents-and-purposes infinite (e.g. PP, HP values, timer)
 - Stochastic Game (players make moves simultaneously in decision-making scenarios; the joint actions results in a transition to a different game state)
 - Multi-Agent (two player)
-- Zero Sum (aka constant sum)
+- Zero Sum (aka constant sum; there is no mutually beneficial reward)
 - Partially Observable (each player has imperfect information)
 
 ### Potential ML approaches:
 - Reinforcement Learning because:
     - You dont know the probability of getting to the next state (due to opponent decision)
-    - You don’t immediately know which states lead you to the reward (+1)
+    - You don’t immediately know which states lead you to the reward
 - Second Choice: Monte Carlo Tree Searching?
     - This would only really be applicable in Singles since in Doubles, this would be really expensive
     - We could create heuristics to limit your search space (e.g. not attacking your own pokemon unless healing or weakness policy)
@@ -131,6 +115,6 @@ Bots to play VGC. Here are my initial notes from readings:
 2. [Added more Doubles Support](https://github.com/caymansimpson/poke-env)
 3. Install Node and requirements for PokeEnv (e.g. python3.6, tensorflow, orljson, keras-rl2==1.0.3)
 
-To run an eample where we simulate random battles, from home directory:
+To run an example where we simulate random battles, from home directory:
 `node Pokemon-Showdown/pokemon-showdown`
 then `python3.8 simulators/simulate_random_doubles.py`

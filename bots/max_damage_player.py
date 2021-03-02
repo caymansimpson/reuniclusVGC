@@ -11,7 +11,7 @@ from poke_env.player.battle_order import DoubleBattleOrder, DefaultDoubleBattleO
 from helpers.doubles_utils import *
 import numpy as np
 
-# Random Bot that doesn't self-hit
+# Bot that tries to maximize the damage it does in the turn
 class MaxDamagePlayer(Player):
     def choose_move(self, battle):
 
@@ -95,4 +95,7 @@ class MaxDamagePlayer(Player):
 
         # We start with the one we consider best overall
         # We use i + 1 as python indexes start from 0 but showdown's indexes start from 1, and return the first 4 mons, in term of importance
-        return "/team " + "".join([str(i + 1) for i in ordered_mons[:4]])
+        # return "/team " + "".join([str(i + 1) for i in ordered_mons[:4]])
+
+        # For right now, return a random ordering to facilitate learning
+        return "/team " + "".join(random.sample(list(map(lambda x: str(x+1), range(0, len(battle.team)))), k=4))

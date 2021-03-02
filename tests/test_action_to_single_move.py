@@ -40,7 +40,7 @@ class DummyDoublesPlayer(RandomDoublesPlayer):
     # Basically, on the first move, take the existing battle state and go through all possible inputs for _action_to_move
     # and print out the mapping between the action (int) and the output (DoubleBattleOrder) to verify the output's correctness
     def choose_move(self, battle):
-        if not self.first: return DefaultBattleOrder()
+        if not self.first: return '/choose default'
 
         plyr = SimpleDQNPlayer()
         for i in range(676):
@@ -55,8 +55,7 @@ class DummyDoublesPlayer(RandomDoublesPlayer):
         self.first = False
         battle_debug(battle)
 
-
-        return DefaultBattleOrder()
+        return '/choose default'
 
 async def main():
     print("\033[92m Starting script... \033[0m")

@@ -30,6 +30,19 @@ Possible options:
 - Optimize for KOs
 - Optimize for sweeps
 - Assume worst-case scenario pokemon is brought as a counter, and update when this isnt the case
+
+What I plan to do:
+- Take a "click buttons" team
+- Set up rule-based way to determine the position I want to be in
+- Every turn, check if I am in the position or I can get in that position
+- If I am:
+    - Click Buttons
+- If I'm not:
+    - If I can get there && I can get there with an acceptable cost:
+        - Do it
+    - Otherwise
+        - Identify why I'm not in that position
+        - Fix it, without compromising worst-case scenario
 """
 class HeuristicsPlayer(Player):
 

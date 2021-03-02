@@ -12,7 +12,6 @@ from typing import Optional
 import random
 import numpy as np
 import itertools
-import tensorflow as tf
 
 # Given a boost level, returns the modifier
 def statMod(statStage):
@@ -137,23 +136,3 @@ def battle_debug(battle):
     print("Weather:        ", battle.weather)
     print("=================== End =====================")
     print()
-
-# Record progress of wins for keras models
-class WinRatioCallback(tf.keras.callbacks.Callback):
-
-    def __init__(self, player, dqn):
-        self.player = player
-        self.dqn = dqn
-        self.max_player = MaxDamagePlayer(battle_format="gen8vgc2021", team=TeamRepository.teams['swampert'])
-        self.rand_player = SmarterRandomPlayer(battle_format="gen8vgc2021", team=TeamRepository.teams['swampert'])
-
-    def on_epoch_end(self, epoch, logs=None):
-
-        if epoch % 2000 != 0: return
-        num_battles = 100
-
-        self.player.play_against(env_algorithm=dqn_evaluation, opponent=self.max_player, env_algorithm_kwargs={"dqn": self.dqn, "nb_episodes": num_battles})
-        wandb.log({'epoch': epoch, 'pct_wins_against_max': self.player.n_won_battles*1./num_battles})
-
-        self.player.play_against(env_algorithm=dqn_evaluation, opponent=self.rand_player, env_algorithm_kwargs={"dqn": dqn, "nb_episodes": num_battles})
-        wandb.log({'epoch': epoch, 'pct_wins_against_rand': self.player.n_won_battles*1./num_battles})

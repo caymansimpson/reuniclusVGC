@@ -483,15 +483,15 @@ class SimpleDQNPlayer(EnvPlayer):
         if battle not in self._reward_buffer:
             self._reward_buffer[battle] = starting_value
 
-        # Incorporate rewards for our team
-        for mon in battle.team.values():
-            current_value += mon.current_hp_fraction * hp_value # We value HP at 25 points for 100% of a mon's
-            if mon.fainted: current_value -= fainted_value # We value fainted mons at 100 points
+        # # Incorporate rewards for our team
+        # for mon in battle.team.values():
+        #     current_value += mon.current_hp_fraction * hp_value # We value HP at 25 points for 100% of a mon's
+        #     if mon.fainted: current_value -= fainted_value # We value fainted mons at 100 points
 
-        # Incorporate rewards for other team (to keep symmetry)
-        for mon in battle._teampreview_opponent_team:
-            current_value -= mon.current_hp_fraction * hp_value
-            if mon.fainted: current_value += fainted_value
+        # # Incorporate rewards for other team (to keep symmetry)
+        # for mon in battle._teampreview_opponent_team:
+        #     current_value -= mon.current_hp_fraction * hp_value
+        #     if mon.fainted: current_value += fainted_value
 
         # Victory condition
         if battle.won: current_value += victory_value
@@ -534,7 +534,7 @@ class SimpleDQNPlayer(EnvPlayer):
         action = self._actions[battle].get()
         order = self._action_to_move(action, battle)
 
-        return order
+        return order.message
 
     # Same as max damage for now - we return the mons who have the best average type advantages against the other team
     # TODO: implement using Q-values and minimax to send out position that maximizes our worst position
