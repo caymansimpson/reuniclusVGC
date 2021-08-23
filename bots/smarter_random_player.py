@@ -9,7 +9,7 @@ sys.path.append("..") # will make "utils" callable from simulators
 
 from poke_env.player.player import Player
 from poke_env.environment.double_battle import DoubleBattle
-from poke_env.player.battle_order import DoubleBattleOrder, DefaultDoubleBattleOrder, BattleOrder
+from poke_env.player.battle_order import DoubleBattleOrder, BattleOrder, DefaultBattleOrder
 from poke_env.player.random_player import RandomPlayer
 from helpers.doubles_utils import *
 from bots.random_doubles_player import RandomDoublesPlayer
@@ -31,12 +31,12 @@ class SmarterRandomPlayer(Player):
 
             if reasonable_orders: order =  random.choice(reasonable_orders)
             if len(filtered_orders) > 0: order = random.choice(filtered_orders)
-            else: order = DefaultDoubleBattleOrder()
+            else: order = DefaultBattleOrder()
 
-            return order.message
+            return order
 
         # Force Switch situation
-        else: return random.choice(orders).message
+        else: return random.choice(orders)
 
     # Filters all orders to reasonable moves
     def _filter_to_reasonable_moves(self, battle: List[DoubleBattle], orders: List[DoubleBattleOrder]):

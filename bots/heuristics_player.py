@@ -17,7 +17,7 @@ from poke_env.environment.volatile_status import VolatileStatus
 from poke_env.environment.battle import Battle
 from bots.random_doubles_player import RandomDoublesPlayer
 
-from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder, BattleOrder, DefaultDoubleBattleOrder
+from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder, BattleOrder
 
 from helpers.doubles_utils import *
 
@@ -47,7 +47,7 @@ What I plan to do:
 class HeuristicsPlayer(Player):
 
     def choose_move(self, battle):
-        return '/choose default'
+        return DefaultBattleOrder()
 
     # Get Random Team
     def teampreview(self, battle):

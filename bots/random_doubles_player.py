@@ -1,6 +1,6 @@
 from poke_env.player.player import Player
 from poke_env.player.random_player import RandomPlayer
-from poke_env.player.battle_order import DoubleBattleOrder, DefaultDoubleBattleOrder
+from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder
 import random
 import itertools
 import sys
@@ -17,8 +17,8 @@ class RandomDoublesPlayer(Player):
 
         filtered_orders = list(filter(lambda x: DoubleBattleOrder.is_valid(battle, x), orders))
         if filtered_orders: order = random.choice(filtered_orders)
-        else: order = DefaultDoubleBattleOrder()
-        return order.message
+        else: order = DefaultBattleOrder()
+        return order
 
     def teampreview(self, battle):
 

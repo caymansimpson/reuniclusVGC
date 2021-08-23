@@ -7,7 +7,8 @@ sys.path.append("..") # will make "utils" callable from simulators
 
 from poke_env.player.player import Player
 from poke_env.player.random_player import RandomPlayer
-from poke_env.player.battle_order import DoubleBattleOrder, DefaultDoubleBattleOrder, BattleOrder
+from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder, BattleOrder
+from poke_env import utils
 from helpers.doubles_utils import *
 import numpy as np
 
@@ -15,7 +16,7 @@ import numpy as np
 class MaxDamagePlayer(Player):
     def choose_move(self, battle):
 
-        best_order = DefaultDoubleBattleOrder()
+        best_order = DefaultBattleOrder()
 
         # If we're not being forced to switch and are choosing our moves
         if not any(battle.force_switch):
@@ -42,7 +43,7 @@ class MaxDamagePlayer(Player):
 
                         for target in targets:
                             stab = 1.5 if order.order.type in order.actor.types else 1
-                            target_mon = battle.showdown_target_to_mon(target)
+                            target_mon = utils.showdown_target_to_mon(battle, target)
 
                             effectiveness = order.order.type.damage_multiplier(*target_mon.types) if target_mon is not None else 1
                             base_power = order.order.base_power
@@ -78,7 +79,7 @@ class MaxDamagePlayer(Player):
 
                 if np.mean(multipliers) > multiplier: best_order, multiplier = double_order, np.mean(multipliers)
 
-        return best_order.message
+        return best_order
 
     # Choose mons who have the best average performance of the other team
     def teampreview(self, battle):

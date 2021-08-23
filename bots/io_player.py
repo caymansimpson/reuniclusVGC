@@ -8,7 +8,7 @@ sys.path.append("..") # will make "utils" callable from simulators
 
 from poke_env.player.player import Player
 from poke_env.player.random_player import RandomPlayer
-from poke_env.player.battle_order import DoubleBattleOrder, DefaultDoubleBattleOrder
+from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder
 
 from helpers.doubles_utils import *
 
@@ -29,8 +29,20 @@ class IOPlayer(Player):
         else: print("Second mon's moves: None")
         print("Second mon's switches: " + str(battle.available_switches[1]))
 
-        order =  input("What order do you want to give?")
-        return order
+        order = input("What order do you want to give?")
+
+        # TODO: create DoubleBattleOrder based on string moves
+        """
+        class BattleOrder:
+        order: Optional[Union[Move, Pokemon]]
+        actor: Optional[Pokemon] = None
+        mega: bool = False
+        z_move: bool = False
+        dynamax: bool = False
+        # Represents the showdown target
+        move_target: int = DoubleBattle.EMPTY_TARGET_POSITION
+        """
+        return DefaultBattleOrder()
 
     # Just select the first 4 mons
     def teampreview(self, battle):
