@@ -61,7 +61,8 @@ class WinRatioCallback(tf.keras.callbacks.Callback):
         self.player.play_against(env_algorithm=dqn_evaluation, opponent=self.rand_player, env_algorithm_kwargs={"dqn": dqn, "nb_episodes": num_battles})
         wandb.log({'epoch': epoch, 'pct_wins_against_rand': self.player.n_won_battles*1./num_battles})
 
-
+# TODO: figure out why no dynamax
+# TODO: figure out why no switching
 def train():
 
     # Default values for hyper-parameters we're going to sweep over
@@ -70,16 +71,16 @@ def train():
         'NB_EVALUATION_EPISODES': 100,
         'first_layer_nodes': 500,
         'second_layer_nodes': 500,
-        'third_layer_nodes': 500,
+        'third_layer_nodes': -1,
         'gamma': .99,
         'delta_clip': .9,
-        'target_model_update': 1,
+        'target_model_update': 10,
         'lr': .001,
-        'memory_limit': 1000000,
+        'memory_limit': 100000,
         'warmup_steps': 500,
         'activation': "relu",
-        'policy': 'LinearAnnealedPolicy',
-        'team': 'mamoswine',
+        'policy': 'EpsGreedyQPolicy',
+        'team': 'garchomp',
         'opponent': 'max',
         'opponent_team': 'swampert'
     }
@@ -168,7 +169,6 @@ def train():
     wandb.log({'pct_wins_against_max': env_player.n_won_battles*1./config.NB_EVALUATION_EPISODES})
 
     print("Saving model...")
-    model.save("models/model_%d" % config.NB_TRAINING_STEPS)
     dqn.save_weights("models/model_" + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S"), overwrite=True)
 
 # Implemented; https://colab.research.google.com/drive/1gKixa6hNUB8qrn1CfHirOfTEQm0qLCSS?usp=sharing
