@@ -114,7 +114,9 @@ Bots to play VGC. Here are my initial notes from readings:
 1. [Forked Hsahovic's PokeEnv](https://github.com/hsahovic/poke-env/blob/master/src/poke_env/)
 2. [Added more Doubles Support](https://github.com/caymansimpson/poke-env)
 3. Install Node and requirements for PokeEnv (e.g. python3.6, tensorflow, orljson, keras-rl2==1.0.3)
+4. [Set up Bash Profile](https://stackoverflow.com/questions/16904658/node-version-manager-install-nvm-command-not-found)
 
 To run an example where we simulate random battles, from home directory:
+`source ~/.bash_profile`,
 `node Pokemon-Showdown/pokemon-showdown`
 then `python3.8 simulators/simulate_random_doubles.py`
