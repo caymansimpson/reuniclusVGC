@@ -21,7 +21,7 @@ from poke_env.environment.volatile_status import VolatileStatus
 from poke_env.environment.battle import Battle
 from bots.random_doubles_player import RandomDoublesPlayer
 
-from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder, BattleOrder, DefaultDoubleBattleOrder
+from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder, BattleOrder
 
 from helpers.doubles_utils import *
 
@@ -172,7 +172,7 @@ class SimpleDQNPlayer(EnvPlayer):
         double_order = DoubleBattleOrder(first_order=first_order, second_order=second_order)
         if DoubleBattleOrder.is_valid(battle, double_order):
             return double_order
-        else: return DefaultDoubleBattleOrder()
+        else: return DefaultBattleOrder()
 
     @property
     def action_space(self) -> List:

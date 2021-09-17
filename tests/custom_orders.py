@@ -18,7 +18,7 @@ from helpers.team_repo import TeamRepository
 
 # To run from command line, run this in the root directory: python3.8 simulators/simulate_random_doubles.py
 async def main():
-    print("\033[92m Starting script... \033[0m")
+    print("\033[92mStarting script... \033[0m")
 
     # We create players:
     players = [

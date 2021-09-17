@@ -3,3 +3,4 @@
 models/
 wandb/
 .python-version
+*__pycache__*
