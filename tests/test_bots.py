@@ -22,7 +22,7 @@ from helpers.team_repo import TeamRepository
 async def main():
     print("\033[92m Starting script... \033[0m")
 
-    # We create players:nochoice, doubleturn, pledge
+    # We create players that have teams which push the limits of edge cases
     teams = ['nochoice', 'switch', 'edgecase', 'doubleturn', 'pledge', 'regirock', 'garchomp']
     players = []
 
