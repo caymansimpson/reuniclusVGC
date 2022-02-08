@@ -4,6 +4,7 @@ from poke_env.player.battle_order import DoubleBattleOrder, DefaultBattleOrder
 import random
 import itertools
 import sys
+import asyncio
 
 sys.path.append(".") # will make "utils" callable from root
 sys.path.append("..") # will make "utils" callable from simulators
@@ -11,6 +12,9 @@ sys.path.append("..") # will make "utils" callable from simulators
 from helpers.doubles_utils import *
 
 class RandomDoublesPlayer(Player):
+
+    def print_message(self, msg, battle):
+        asyncio.ensure_future(self._send_message(msg, battle.battle_tag))
 
     def choose_move(self, battle):
         orders = self.get_all_doubles_moves(battle)

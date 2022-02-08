@@ -44,7 +44,7 @@ class Embedder():
         self._knowledge['Pokemon'] = list(GEN_TO_POKEDEX[gen].keys())
 
         # These are the lengths of the embeddings of each function. TODO: depends on the generation
-        self.MOVE_LEN = 177
+        self.MOVE_LEN = 1039 # for gen8
         self.MON_LEN = 100
         self.OPP_MON_LEN = 50
         self.BATTLE_LEN = 100
@@ -140,30 +140,12 @@ class Embedder():
         # Flatten the arrays
         return [item for sublist in embeddings for item in sublist]
 
+    # Returns an array of an embedded mon; could be precomputed per battle
     def embed_mon(self, mon):
-        return []
-
-    def embed_opp_mon(self, mon):
-        return []
-
-    def embed_battle(self, mon):
-        return []
-
-"""
-    # Embeds a move in a 178-dimensional array. This includes a move's accuracy, base_power, whether it breaks protect, crit ratio, pp,
-    # damage, drain %, expected # of hits, whether it forces a switch, how much it heals, whether it ignores abilities/defenses/evasion/immunity
-    # min times it can hit, max times it can hit its priority bracket, how much recoil it causes, whether it self destructs, whether it causes you to switch/steal boosts/thaw target/
-    # uses targets offense, the moves offensive category (ohe: 3), defensive category (ohe: 3), type (ohe: ), fields (ohe: ), side conditions (ohe: ), weathers (ohe: ), targeting types (ohe: 14), volatility status (ohe: 57),
-    # status (ohe: ), boosts (ohe: 6), self-boosts (ohe: 6) and the chance of a secondary effect
-    def _embed_move(self, move):
-
-
-    # We encode the opponent's mon in a 779-dimensional embedding
-    # We encode all the mons moves, whether it is active, it's current hp, whether it's fainted, its level, weight, whether it's recharging, preparing, dynamaxed,
-    # its stats, boosts, status, types and whether it's trapped or forced to switch out.
-    # We currently don't encode its item, abilities (271) or its species (1155) because of the large cardinalities
-    def _embed_mon(self, battle, mon):
         embeddings = []
+
+        # TODO: OHE mons and their items
+        # embeddings.append([1 if move.id == m else 0 for m in self._knowledge['Move']])
 
         # Append moves to embedding (and account for the fact that the mon might have <4 moves)
         for move in (list(mon.moves.values()) + [None, None, None, None])[:4]:
@@ -202,6 +184,20 @@ class Embedder():
 
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
+
+    def embed_opp_mon(self, mon):
+        return []
+
+    def embed_battle(self, mon):
+        return []
+
+"""
+    # We encode the opponent's mon in a 779-dimensional embedding
+    # We encode all the mons moves, whether it is active, it's current hp, whether it's fainted, its level, weight, whether it's recharging, preparing, dynamaxed,
+    # its stats, boosts, status, types and whether it's trapped or forced to switch out.
+    # We currently don't encode its item, abilities (271) or its species (1155) because of the large cardinalities
+    def _embed_mon(self, battle, mon):
+
 
     # We encode the opponent's mon in a 771-dimensional embedding
     # We encode all the mons moves, whether it's active, if we know it's sent, it's current hp, whether it's fainted, its level, weight, whether it's recharging,

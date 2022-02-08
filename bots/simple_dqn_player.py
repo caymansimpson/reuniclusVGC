@@ -39,17 +39,17 @@ class SimpleDQNPlayer(EnvPlayer):
     def __init__(self, num_battles=10000, **kwargs):
         super().__init__(**kwargs)
 
-        # # Redefine the buffer defined in env_player; this will be turn (int) => reward and will be reset every battle
-        # # So that we can compute te difference between this reward and the last state
+        # Redefine the buffer defined in env_player; this will be turn (int) => reward and will be reset every battle
+        # So that we can compute te difference between this reward and the last state
         self._reward_buffer = {}
 
-        # # Ensure stability and reproducibility
-        # tf.random.set_seed(21)
-        # np.random.seed(21)
+        # Ensure stability and reproducibility
+        tf.random.set_seed(21)
+        np.random.seed(21)
 
-        # # (4 moves * (3 possible targets) * dynamax + 2 switches)*(4 moves * (3 possible targets) * dynamax + 2 switches) = 676
-        # # This is not entirely true since you can't choose the same mon to switch to both times, or you cant dynamax two mons at the same time
-        # # but it's easier to do it this way
+        # (4 moves * (3 possible targets) * dynamax + 2 switches)*(4 moves * (3 possible targets) * dynamax + 2 switches) = 676
+        # This is not entirely true since you can't choose the same mon to switch to both times, or you cant dynamax two mons at the same time
+        # but it's easier to do it this way
         action_space = list(range((4 * 3  * 2 + 2)*(4 * 3 * 2 + 2)))
         self._ACTION_SPACE = action_space
 
@@ -71,55 +71,59 @@ class SimpleDQNPlayer(EnvPlayer):
             if supported: self._knowledge[key] =  list(klass._member_map_.values())
             else: self._knowledge[key] = list(map(lambda x: x.name.lower().replace("_", ""), list(klass._member_map_.values())))
 
-        # # Simple model where only one layer feeds into the next
-        # self._model = Sequential()
+        # self._create_model()
 
-        # # Get initializer for hidden layers
-        # init = tf.keras.initializers.RandomNormal(mean=.1, stddev=.02)
+    def create_model(self):
+        # Simple model where only one layer feeds into the next
+        self._model = Sequential()
 
-        # # Input Layer; this shape is one that just works
-        # self._model.add(Dense(512, input_shape=(1, 7814), activation="relu", use_bias=False, kernel_initializer=init, name='first_hidden'))
+        # Get initializer for hidden layers
+        init = tf.keras.initializers.RandomNormal(mean=.1, stddev=.02)
 
-        # # Hidden Layers
-        # self._model.add(Flatten(name='flatten')) # Flattening resolve potential issues that would arise otherwise
-        # self._model.add(Dense(256, activation="relu", use_bias=False, kernel_initializer=init, name='second_hidden'))
+        # Input Layer; this shape is one that just works
+        self._model.add(Dense(512, input_shape=(1, 7814), activation="relu", use_bias=False, kernel_initializer=init, name='first_hidden'))
 
-        # # Output Layer
-        # self._model.add(Dense(len(self._ACTION_SPACE), use_bias=False, kernel_initializer=init, name='final'))
-        # self._model.add(BatchNormalization()) # Increases speed: https://www.dlology.com/blog/one-simple-trick-to-train-keras-model-faster-with-batch-normalization/
-        # self._model.add(Activation("linear")) # Same as passing activation in Dense Layer, but allows us to access last layer: https://stackoverflow.com/questions/40866124/difference-between-dense-and-activation-layer-in-keras
+        # Hidden Layers
+        self._model.add(Flatten(name='flatten')) # Flattening resolve potential issues that would arise otherwise
+        self._model.add(Dense(256, activation="relu", use_bias=False, kernel_initializer=init, name='second_hidden'))
 
-        # # This is how many battles we'll remember before we start forgetting old ones
-        # self._memory = SequentialMemory(limit=max(num_battles, 10000), window_length=1)
+        # Output Layer
+        self._model.add(Dense(len(self._ACTION_SPACE), use_bias=False, kernel_initializer=init, name='final'))
+        self._model.add(BatchNormalization()) # Increases speed: https://www.dlology.com/blog/one-simple-trick-to-train-keras-model-faster-with-batch-normalization/
+        self._model.add(Activation("linear")) # Same as passing activation in Dense Layer, but allows us to access last layer: https://stackoverflow.com/questions/40866124/difference-between-dense-and-activation-layer-in-keras
 
-        # # Simple epsilon greedy policy
-        # # This takes the output of our NeuralNet and converts it to a value
-        # # Softmax is another probabilistic option: https://github.com/keras-rl/keras-rl/blob/master/rl/policy.py#L120
-        # self._policy = LinearAnnealedPolicy(
-        #     MaxBoltzmannQPolicy(),
-        #     attr="eps",
-        #     value_max=1.0,
-        #     value_min=0.05,
-        #     value_test=0,
-        #     nb_steps=num_battles,
-        # )
+        # This is how many battles we'll remember before we start forgetting old ones
+        self._memory = SequentialMemory(limit=max(num_battles, 10000), window_length=1)
 
-        # # Defining our DQN
-        # self._dqn = DQNAgent(
-        #     model=self._model,
-        #     nb_actions=len(action_space),
-        #     policy=self._policy,
-        #     memory=self._memory,
-        #     nb_steps_warmup=max(1000, int(num_battles/10)), # The number of battles we go through before we start training: https://hub.packtpub.com/build-reinforcement-learning-agent-in-keras-tutorial/
-        #     gamma=0.8, # This is the discount factor for the Value we learn - we care a lot about future rewards
-        #     target_model_update=.01, # This controls how much/when our model updates: https://github.com/keras-rl/keras-rl/issues/55
-        #     delta_clip=1, # Helps define Huber loss - cips values to be -1 < x < 1. https://srome.github.io/A-Tour-Of-Gotchas-When-Implementing-Deep-Q-Networks-With-Keras-And-OpenAi-Gym/
-        #     enable_double_dqn=True,
-        # )
+        # Simple epsilon greedy policy
+        # This takes the output of our NeuralNet and converts it to a value
+        # Softmax is another probabilistic option: https://github.com/keras-rl/keras-rl/blob/master/rl/policy.py#L120
+        self._policy = LinearAnnealedPolicy(
+            MaxBoltzmannQPolicy(),
+            attr="eps",
+            value_max=1.0,
+            value_min=0.05,
+            value_test=0,
+            nb_steps=num_battles,
+        )
 
-        # self._dqn.compile(Adam(lr=0.01), metrics=["mae"])
+        # Defining our DQN
+        self._dqn = DQNAgent(
+            model=self._model,
+            nb_actions=len(action_space),
+            policy=self._policy,
+            memory=self._memory,
+            nb_steps_warmup=max(1000, int(num_battles/10)), # The number of battles we go through before we start training: https://hub.packtpub.com/build-reinforcement-learning-agent-in-keras-tutorial/
+            gamma=0.8, # This is the discount factor for the Value we learn - we care a lot about future rewards
+            target_model_update=.01, # This controls how much/when our model updates: https://github.com/keras-rl/keras-rl/issues/55
+            delta_clip=1, # Helps define Huber loss - cips values to be -1 < x < 1. https://srome.github.io/A-Tour-Of-Gotchas-When-Implementing-Deep-Q-Networks-With-Keras-And-OpenAi-Gym/
+            enable_double_dqn=True,
+        )
+
+        self._dqn.compile(Adam(lr=0.01), metrics=["mae"])
 
     def _action_to_single_move(self, action: int, index: int, battle):
+
         if action < 24:
             # If either there is no mon or we're forced to switch, there's nothing to do
             if not battle.active_pokemon[index] or battle.force_switch[index]: return None
@@ -177,7 +181,7 @@ class SimpleDQNPlayer(EnvPlayer):
     @property
     def action_space(self) -> List:
         """
-        There are 210 possible moves:
+        There are 210 possible moves w/out dynamax:
         First mon's move possibilities: 4 moves * 3 possible targets (for moves w/ multiple/self-targeting we default to any target) + 3 switches
         Second mon's move possibilities: 4 moves * 3 possible targets (for moves w/ multiple/self-targeting we default to any target) + 2 switches
         First mon's move possibilities * Second mon's move possibilities = 210
