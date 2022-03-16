@@ -20,7 +20,11 @@ from helpers.doubles_utils import *
 
 class Embedder():
 
-    def __init__(self, gen=8):
+    def __init__(self, gen=8, priorty=0):
+
+        # TODO: implement by creating priority tiers with which we should ebed different aspects of the game
+        self.priority = priority
+        self.gen = gen
 
         # Store all possible game-related knowledge, so that we can can embed battle states. The tuples are
         # key where we retrieve the classes, the class, and whether poke_env supports returning the class (as opposed to string)
@@ -42,6 +46,9 @@ class Embedder():
 
         self._knowledge['Move'] = list(GEN_TO_MOVES[gen].keys())
         self._knowledge['Pokemon'] = list(GEN_TO_POKEDEX[gen].keys())
+        self._knowlege['Ability'] = list(set([
+            ability for sublist in map(lambda x: x.abilities.values(), GEN_TO_POKEDEX[gen].values()) for abillty in sublist
+            ]))
 
         # These are the lengths of the embeddings of each function. TODO: depends on the generation
         self.MOVE_LEN = 1039 # for gen8
@@ -144,8 +151,13 @@ class Embedder():
     def embed_mon(self, mon):
         embeddings = []
 
-        # TODO: OHE mons and their items
-        # embeddings.append([1 if move.id == m else 0 for m in self._knowledge['Move']])
+        # OHE mons
+        embeddings.append([1 if mon == pokemon else 0 for pokemon in self._knowledge['Pokemon']])
+
+        # OHE abilities
+        embeddings.append([1 if mon.ability == ability else 0 for ability in self._knowledge['Ability']])
+
+        # TODO: OHE items
 
         # Append moves to embedding (and account for the fact that the mon might have <4 moves)
         for move in (list(mon.moves.values()) + [None, None, None, None])[:4]:
@@ -186,30 +198,19 @@ class Embedder():
         return [item for sublist in embeddings for item in sublist]
 
     def embed_opp_mon(self, mon):
-        return []
-
-    def embed_battle(self, mon):
-        return []
-
-"""
-    # We encode the opponent's mon in a 779-dimensional embedding
-    # We encode all the mons moves, whether it is active, it's current hp, whether it's fainted, its level, weight, whether it's recharging, preparing, dynamaxed,
-    # its stats, boosts, status, types and whether it's trapped or forced to switch out.
-    # We currently don't encode its item, abilities (271) or its species (1155) because of the large cardinalities
-    def _embed_mon(self, battle, mon):
-
-
-    # We encode the opponent's mon in a 771-dimensional embedding
-    # We encode all the mons moves, whether it's active, if we know it's sent, it's current hp, whether it's fainted, its level, weight, whether it's recharging,
-    # preparing, dynamaxed, its base stats (because we don't know it's IV/EV/Nature), boosts, status, types and whether it's trapped or forced to switch out.
-    # We currently don't encode its item, possible abilities (271 * 3) or its species (1155) because of the large cardinalities
-    # In the future, we should predict high/low ranges of stats based on damage and speeds/hail, and items based on cues
-    def _embed_opp_mon(self, battle, mon):
         embeddings = []
 
-        # Append moves to embedding (and account for the fact that the mon might have <4 moves)
+        # Append moves to embedding (and account for the fact that the mon might have <4 moves, or we don't know of them)
         for move in (list(mon.moves.values()) + [None, None, None, None])[:4]:
             embeddings.append(self._embed_move(move))
+
+        # OHE mons
+        embeddings.append([1 if mon == pokemon else 0 for pokemon in self._knowledge['Pokemon']])
+
+        # OHE possible abilities
+        embeddings.append([1 if ability in GEN_TO_POKEDEX[self.gen][mon.species].abilities else 0 for ability in self._knowledge['Ability']])
+
+        # TODO: OHE items
 
         # Add whether the mon is active, the current hp, whether its fainted, its level, its weight and whether its recharging or preparing
         embeddings.append([
@@ -246,7 +247,7 @@ class Embedder():
         # Flatten all the lists into a Nx1 list
         return [item for sublist in embeddings for item in sublist]
 
-    # Embeds the state of the battle in a 7814-dimensional embedding
+    # Embeds the state of the battle in a X-dimensional embedding
     # Embed mons (and whether theyre active)
     # Embed opponent mons (and whether theyre active, theyve been brought or we don't know)
     # Then embed all the Fields, Side Conditions, Weathers, Player Ratings, # of Turns and the bias
@@ -290,6 +291,5 @@ class Embedder():
         # Add Player Ratings, the battle's turn and a bias term
         embeddings.append(list(map(lambda x: x if x else -1, [battle.rating, battle.opponent_rating, battle.turn, 1])))
 
-        # Flatten all the lists into a 7814-dim list
+        # Flatten all the lists into a list
         return np.array([item for sublist in embeddings for item in sublist])
-"""

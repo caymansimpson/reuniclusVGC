@@ -33,7 +33,8 @@ function alphabeta(node, depth, α, β, maximizingPlayer) is
             if β ≤ α then
                 break (* α cutoff *)
         return value
-
+"""
+"""
 # Need to implement advance(battle, actions)
 # get_value(model, battle)
 # use PriorityQueue to prioritize most likely situations
@@ -65,6 +66,24 @@ function alphabeta(battle, depth, alpha, beta, maximizingPlayer) is
         return value
 
 alphabeta(battle, 6, -np.inf, np.inf, TRUE)
+"""
+
+"""
+In alpha zero, they have:
+- deep neural network that takes in the state and output action probabilities, with the predicted value of an action
+    - the predicted value  = E[expected outcome | state]
+- It doesn't use alphabeta pruning; instead it uses a Monte-carlo tree search
+    - It just self-plaus a bunch til the games end
+    - In each self-play, they branch off to explore different outcomes
+    - How does it select states?
+        - low visit count
+        - high max(move probability)
+        - high predicted value
+    - Neural network aims to:
+        - minimize error between predicted outcomes and game outcomes
+        - maximize similarity of win probability with action probability
+        - Mathematically, minimize the following:
+            - (predicted outcoemes - actual outcomes)^2 - sum(prob_action*log(predicted_prob_action)) + constant*sum(parameters^2)
 """
 class ExpectimaxPlayer(Player):
 
