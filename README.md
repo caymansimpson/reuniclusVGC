@@ -109,6 +109,7 @@ Bots to play VGC. Here are my initial notes from readings:
     1. **This is what I go with**
 14. Implemented Bot: https://github.com/pmariglia/showdown
 15. https://github.com/pkmn/EPOke
+16. https://www.yuzeh.com/assets/CoG-2019-Pkmn.pdf
 
 ### How I got this up and running
 1. [Forked Hsahovic's PokeEnv](https://github.com/hsahovic/poke-env/blob/master/src/poke_env/)
