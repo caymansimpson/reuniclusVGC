@@ -29,19 +29,18 @@ Bots to play VGC. Here are my initial notes from readings:
 - Input:
     - State: All knowable information of the current battle, your pokemon and the opponent's team
     - Possible Actions:
-        - Singles: 4 actions * dynamax + 5 switches = 13
-        - Doubles: (4 actions * 3 targets * dynamax + 2 switches)^2 = 676 options
-            - In reality, there are more limited options (418 total, detailed below), but we can stick w/ 676 for simplicity
+        - Singles: 4 actions * tera + 5 switches = 13
+        - Doubles: (4 actions * 3 targets * tera + 2 switches)^2 = 676 options
+            - In reality, there are more limited options (530 total, detailed below), but we can stick w/ 676 for simplicity
                 - if two switches: 2
                 - if one switch: 2 (cuz either mon could switch) *
-                    - switch mon: 2 possible switches
-                    - if non-switch dynamaxes: 4 moves * 2 targets
-                    - if non-switch doesn't dynamax: 4 moves * 3 targets
-                    - = 80
+                    - switch mon: 2 possible switches *
+                    - non-switch mon: 4 moves * 3 targets * tera
+                    - = 96
                 - if no mon switches:
-                    - if one dynamaxes: 2 possible dynamaxes * (4 moves * 2 targets) * (4 moves * 3 targets)
-                    - if none dynamaxes: (4 moves * 3 targets)*(4 moves * 3 targets)
-                    - = 336
+                    - if one teras: 2 possible teras * (4 moves * 3 targets) * (4 moves * 3 targets)
+                    - if none teras: (4 moves * 3 targets)*(4 moves * 3 targets)
+                    - = 432
 - Output:
     - Best action (or output of our policy given the battle's state)
         - There is no such thing as a “best action” because a perfectly predictable strategy is exploitable. An understanding of how good each action is ideal
