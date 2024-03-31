@@ -1,5 +1,5 @@
 # reuniclusVGC
-Bots to play VGC. Here are my initial notes from readings:
+Bots to play VGC; random and DQN player created; this project is abandoned for Elite Furret AI. Here are my initial notes from readings:
 
 ### Rules of Pokemon that make it hard:
 1. You and opponent make turns simultaneously
